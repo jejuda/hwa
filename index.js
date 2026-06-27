@@ -340,8 +340,9 @@ async function checkUpcomingSpawns() {
       }
       // Spawn alert (0m >= remaining > -10m)
       else if (diffMins <= 0 && diffMins > -10 && record.notified_0 === 0) {
-        await channel.send(`⚔️ **${record.name}** 젠 시간입니다! 어서 처치하세요! @here`);
+        await channel.send(`⚔️ **${record.name}** 출현했습니다! 어서 처치하세요! @here`);
         await db.markNotified(record.name, '0');
+        await announceVoice(`${record.name} 출현했습니다.`);
       }
     }
   } catch (error) {
