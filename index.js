@@ -1,6 +1,5 @@
 import { Client, GatewayIntentBits, EmbedBuilder, ActivityType } from 'discord.js';
 import { joinVoiceChannel, createAudioPlayer, createAudioResource, getVoiceConnection } from '@discordjs/voice';
-import express from 'express';
 import ffmpeg from 'ffmpeg-static';
 import dotenv from 'dotenv';
 import * as db from './database.js';
@@ -9,21 +8,6 @@ dotenv.config();
 
 // Enforce FFmpeg binary path for voice transcoding
 process.env.FFMPEG_PATH = ffmpeg;
-
-let sseClients = [];
-
-
-// Helper: Broadcast event to all connected SSE clients
-function broadcastSSE(data) {
-  const json = JSON.stringify(data);
-  sseClients.forEach(clientObj => {
-    try {
-      clientObj.res.write(`data: ${json}\n\n`);
-    } catch (err) {
-      console.error('Error writing to SSE client:', err);
-    }
-  });
-}
 
 
 const { DISCORD_TOKEN } = process.env;
@@ -332,7 +316,6 @@ client.on('interactionCreate', async interaction => {
       const newMemo = memo !== null ? memo : boss.memo;
 
       await db.updateBoss(boss.name, cooldownMinutes, newMemo);
-      broadcastSSE({ type: 'boss_updated' });
       await interaction.reply(`✅ 보스 **${boss.name}** 수정 완료!\n- 젠 주기: \`${cooldownHours}시간\`\n- 메모: \`${newMemo || '없음'}\``);
     }
     
@@ -482,7 +465,6 @@ client.on('interactionCreate', async interaction => {
       }
 
       await db.setSetting('notification_channel', channel.id);
-      broadcastSSE({ type: 'settings_updated' });
       await interaction.reply(`✅ 보스 젠 알림 채널이 <#${channel.id}> (으)로 설정되었습니다.`);
     }
     
@@ -505,7 +487,6 @@ client.on('interactionCreate', async interaction => {
 
       await db.setSetting('voice_channel', channel.id);
       await db.setSetting('voice_guild', interaction.guildId);
-      broadcastSSE({ type: 'settings_updated' });
 
       try {
         joinVoiceChannel({
@@ -531,41 +512,8 @@ client.on('interactionCreate', async interaction => {
 
       await db.setSetting('voice_channel', null);
       await db.setSetting('voice_guild', null);
-      broadcastSSE({ type: 'settings_updated' });
 
       await interaction.reply('✅ 음성 채널 설정이 해제되었으며 봇이 퇴장했습니다.');
-    }
-    
-    // 12. GET DASHBOARD LINK
-    else if (commandName === '대시보드') {
-      const url = await db.getSetting('dashboard_url');
-      if (!url) {
-        return interaction.reply({
-          content: '🌐 **화순봇 웹 대시보드 주소**\n아직 등록된 대시보드 주소가 없습니다.\n관리자 권한을 가진 분이 `/대시보드설정 [주소]` 명령어로 주소를 등록해 주세요!\n*(예시: `http://node1.dishost.kr:12345`)*'
-        });
-      }
-      
-      const embed = new EmbedBuilder()
-        .setTitle('🌐 화순봇 웹 대시보드 바로가기')
-        .setDescription(`아래 링크를 클릭하면 실시간 웹 대시보드로 이동합니다.\n\n👉 [**대시보드 링크 열기**](${url})`)
-        .setColor(0x00A3FF)
-        .setTimestamp();
-        
-      await interaction.reply({ embeds: [embed] });
-    }
-
-    // 13. SET DASHBOARD LINK
-    else if (commandName === '대시보드설정') {
-      let url = interaction.options.getString('주소').trim();
-      
-      if (!/^https?:\/\//i.test(url)) {
-        url = 'http://' + url;
-      }
-      
-      await db.setSetting('dashboard_url', url);
-      broadcastSSE({ type: 'settings_updated' });
-      
-      await interaction.reply(`✅ 웹 대시보드 주소가 **${url}** (으)로 설정되었습니다.\n이제 서버 인원들이 \`/대시보드\` 명령어로 바로 접속할 수 있습니다.`);
     }
   } catch (error) {
     console.error('Error handling slash command:', error);
@@ -573,226 +521,6 @@ client.on('interactionCreate', async interaction => {
       await interaction.reply({ content: '❌ 명령어 처리 중 내부 오류가 발생했습니다. 로그를 확인하세요.', ephemeral: true });
     }
   }
-});
-
-// Express Web Server Initialization
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.use(express.static('public'));
-app.use(express.json());
-
-// API: Get boss list
-app.get('/api/bosses', async (req, res) => {
-  try {
-    const list = await db.getBossList();
-    res.json(list);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// API: Get current settings
-app.get('/api/settings', async (req, res) => {
-  try {
-    const channelId = await db.getSetting('notification_channel');
-    let channelName = '';
-    if (channelId) {
-      const channel = await client.channels.fetch(channelId).catch(() => null);
-      if (channel) channelName = channel.name;
-    }
-     res.json({
-      notification_channel: channelId,
-      notification_channel_name: channelName,
-      voice_channel: await db.getSetting('voice_channel'),
-      dashboard_url: await db.getSetting('dashboard_url')
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// API: Add boss (Disabled to enforce only default 11 bosses)
-app.post('/api/bosses', async (req, res) => {
-  return res.status(403).json({ error: '새로운 보스 등록은 허용되지 않습니다.' });
-});
-
-// API: Edit boss
-app.put('/api/bosses/:name', async (req, res) => {
-  const { name } = req.params;
-  const { cooldown, memo } = req.body;
-  if (isNaN(cooldown) || cooldown <= 0) {
-    return res.status(400).json({ error: '올바른 젠주기(0보다 큼)를 입력하세요.' });
-  }
-  try {
-    const existing = await db.getBoss(name);
-    if (!existing) {
-      return res.status(404).json({ error: '존재하지 않는 보스입니다.' });
-    }
-    const cooldownMins = Math.round(cooldown * 60);
-    await db.updateBoss(name, cooldownMins, memo !== undefined ? memo : existing.memo);
-    broadcastSSE({ type: 'boss_updated' });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// API: Delete boss (Disabled to enforce only default 11 bosses)
-app.delete('/api/bosses/:name', async (req, res) => {
-  return res.status(403).json({ error: '보스 삭제는 허용되지 않습니다.' });
-});
-
-// API: Record Cut (Killed)
-app.post('/api/cut', async (req, res) => {
-  const { name, time } = req.body;
-  try {
-    const resolution = await resolveBossName(name);
-    if (resolution.matchType === 'none') {
-      return res.status(404).json({ error: `등록되지 않은 보스입니다: ${name}` });
-    } else if (resolution.matchType === 'multiple') {
-      return res.status(400).json({ error: `여러 보스가 매칭됩니다: ${resolution.matches.join(', ')}` });
-    }
-
-    const boss = resolution.boss;
-    let killTime;
-    try {
-      killTime = parseTimeInput(time);
-    } catch (err) {
-      return res.status(400).json({ error: err.message });
-    }
-
-    const nextSpawnTime = new Date(killTime.getTime() + boss.cooldown * 60 * 1000);
-    await db.recordKill(boss.name, killTime, nextSpawnTime);
-
-    // Send Discord message to notification channel
-    const channelId = await db.getSetting('notification_channel');
-    if (channelId) {
-      const channel = await client.channels.fetch(channelId).catch(() => null);
-      if (channel) {
-        const responseEmbed = new EmbedBuilder()
-          .setTitle(`⚔️ 웹에서 ${boss.name} 컷 기록 완료`)
-          .setColor(0xFF4500)
-          .addFields(
-            { name: '처치(컷) 시간', value: `\`${formatDateTime(killTime)}\``, inline: true },
-            { name: '다음 젠 예정', value: `\`${formatDateTime(nextSpawnTime)}\``, inline: true },
-            { name: '남은 시간', value: `\`${formatRemainingTime(nextSpawnTime)}\``, inline: false }
-          )
-          .setTimestamp();
-        await channel.send({ embeds: [responseEmbed] });
-      }
-    }
-
-    broadcastSSE({ type: 'boss_updated' });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// API: Set explicit next spawn
-app.post('/api/spawn', async (req, res) => {
-  const { name, time } = req.body;
-  try {
-    const resolution = await resolveBossName(name);
-    if (resolution.matchType === 'none') {
-      return res.status(404).json({ error: `등록되지 않은 보스입니다: ${name}` });
-    } else if (resolution.matchType === 'multiple') {
-      return res.status(400).json({ error: `여러 보스가 매칭됩니다: ${resolution.matches.join(', ')}` });
-    }
-
-    const boss = resolution.boss;
-    let nextSpawnTime;
-    try {
-      nextSpawnTime = parseFutureTimeInput(time);
-    } catch (err) {
-      return res.status(400).json({ error: err.message });
-    }
-
-    await db.recordSpawn(boss.name, nextSpawnTime);
-
-    // Send Discord message
-    const channelId = await db.getSetting('notification_channel');
-    if (channelId) {
-      const channel = await client.channels.fetch(channelId).catch(() => null);
-      if (channel) {
-        const responseEmbed = new EmbedBuilder()
-          .setTitle(`🗓️ 웹에서 ${boss.name} 젠 예정 시간 지정`)
-          .setColor(0xFFD700)
-          .addFields(
-            { name: '다음 젠 예정', value: `\`${formatDateTime(nextSpawnTime)}\``, inline: true },
-            { name: '남은 시간', value: `\`${formatRemainingTime(nextSpawnTime)}\``, inline: true }
-          )
-          .setTimestamp();
-        await channel.send({ embeds: [responseEmbed] });
-      }
-    }
-
-    broadcastSSE({ type: 'boss_updated' });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// API: Rollback record
-app.post('/api/rollback', async (req, res) => {
-  const { name } = req.body;
-  try {
-    const resolution = await resolveBossName(name);
-    if (resolution.matchType === 'none') {
-      return res.status(404).json({ error: `등록되지 않은 보스입니다: ${name}` });
-    } else if (resolution.matchType === 'multiple') {
-      return res.status(400).json({ error: `여러 보스가 매칭됩니다: ${resolution.matches.join(', ')}` });
-    }
-
-    const boss = resolution.boss;
-    await db.rollbackRecord(boss.name);
-    const updated = await db.getBoss(boss.name);
-
-    // Send Discord message
-    const channelId = await db.getSetting('notification_channel');
-    if (channelId) {
-      const channel = await client.channels.fetch(channelId).catch(() => null);
-      if (channel) {
-        const responseEmbed = new EmbedBuilder()
-          .setTitle(`🔄 웹에서 ${boss.name} 기록 취소 완료`)
-          .setColor(0x808080)
-          .setDescription(`최근 컷/젠 기록이 취소되고 이전 상태로 복구되었습니다.`)
-          .addFields(
-            { name: '복구된 다음 젠 예정', value: `\`${formatDateTime(updated.next_spawn)}\``, inline: true },
-            { name: '남은 시간', value: `\`${formatRemainingTime(updated.next_spawn)}\``, inline: true }
-          )
-          .setTimestamp();
-        await channel.send({ embeds: [responseEmbed] });
-      }
-    }
-
-    broadcastSSE({ type: 'boss_updated' });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// API: Server-Sent Events for real-time dashboard sync
-app.get('/api/events', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-
-  const clientObj = { res };
-  sseClients.push(clientObj);
-
-  req.on('close', () => {
-    sseClients = sseClients.filter(c => c !== clientObj);
-  });
-});
-
-// Start Express Web Server
-app.listen(PORT, () => {
-  console.log(`🌐 Web Dashboard server running on port ${PORT}`);
 });
 
 // Login Discord Bot

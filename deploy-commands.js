@@ -112,22 +112,7 @@ const commands = [
   // /음성채널해제
   new SlashCommandBuilder()
     .setName('음성채널해제')
-    .setDescription('음성 채널 설정을 해제하고 봇을 퇴장시킵니다.'),
-
-  // /대시보드
-  new SlashCommandBuilder()
-    .setName('대시보드')
-    .setDescription('웹 대시보드 바로가기 링크를 확인합니다.'),
-
-  // /대시보드설정 [주소]
-  new SlashCommandBuilder()
-    .setName('대시보드설정')
-    .setDescription('대시보드 웹 주소를 설정합니다.')
-    .addStringOption(option =>
-      option.setName('주소')
-        .setDescription('웹 주소를 입력해 주세요. (예: http://node1.dishost.kr:12345)')
-        .setRequired(true)
-    )
+    .setDescription('음성 채널 설정을 해제하고 봇을 퇴장시킵니다.')
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
