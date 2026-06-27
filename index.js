@@ -507,6 +507,63 @@ client.on('interactionCreate', async interaction => {
       await interaction.reply({ embeds: [embed] });
     }
     
+    // 4.1. LIST BOSSES ORDERED BY SPAWN TIME (보스순서)
+    else if (commandName === '보스순서') {
+      const list = await db.getBossList();
+      if (list.length === 0) {
+        return interaction.reply('등록된 보스가 없습니다.');
+      }
+
+      const sortedList = [...list].sort((a, b) => {
+        if (!a.next_spawn && !b.next_spawn) return a.name.localeCompare(b.name, 'ko');
+        if (!a.next_spawn) return 1;
+        if (!b.next_spawn) return -1;
+
+        const aTime = new Date(a.next_spawn);
+        const bTime = new Date(b.next_spawn);
+        return aTime - bTime;
+      });
+
+      const embed = new EmbedBuilder()
+        .setTitle('⏳ 보스 출현 순서 (남은 시간 순)')
+        .setColor(0x00FF87)
+        .setTimestamp();
+
+      let description = '';
+      sortedList.forEach((boss, index) => {
+        const nextSpawnStr = formatDateTime(boss.next_spawn);
+        const remainingStr = formatRemainingTime(boss.next_spawn);
+        
+        let emoji = '⏰';
+        let statusText = '';
+
+        if (!boss.next_spawn) {
+          emoji = '❔';
+          statusText = '기록 없음';
+        } else {
+          const isOver = new Date(boss.next_spawn) <= new Date();
+          if (isOver) {
+            emoji = '⚔️';
+            statusText = `**${remainingStr}**`;
+          } else {
+            emoji = '⏰';
+            statusText = `${remainingStr}`;
+          }
+        }
+
+        description += `**${index + 1}. ${emoji} ${boss.name}**\n`;
+        if (boss.next_spawn) {
+          description += `└ 상태: ${statusText} | 예정: \`${nextSpawnStr}\`\n`;
+        } else {
+          description += `└ 상태: \`${statusText}\`\n`;
+        }
+        description += '\n';
+      });
+
+      embed.setDescription(description);
+      await interaction.reply({ embeds: [embed] });
+    }
+    
     // 5. REPORT KILL
     else if (commandName === '컷') {
       const inputName = interaction.options.getString('이름').trim();

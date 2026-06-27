@@ -56,6 +56,11 @@ const commands = [
     .setName('보탐')
     .setDescription('등록된 모든 보스의 젠 시간 상태를 보여줍니다.'),
 
+  // /보스순서
+  new SlashCommandBuilder()
+    .setName('보스순서')
+    .setDescription('남은 시간이 적게 남은 순서대로 보스 목록을 나열합니다.'),
+
   // /컷 [이름] [시간]
   new SlashCommandBuilder()
     .setName('컷')
