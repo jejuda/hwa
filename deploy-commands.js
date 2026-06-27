@@ -73,7 +73,7 @@ const commands = [
     )
     .addStringOption(option =>
       option.setName('시간')
-        .setDescription('처치한 시간(HH:MM) 또는 "몇분전" 형태로 입력하세요. (예: 14:30, 10분전, 생략시 현재시간)')
+        .setDescription('처치한 시간(HH:MM:SS) 또는 "몇분전" 형태로 입력하세요. (예: 14:30:15, 10분전, 생략시 현재시간)')
         .setRequired(false)
     ),
 
@@ -89,7 +89,7 @@ const commands = [
     )
     .addStringOption(option =>
       option.setName('시간')
-        .setDescription('다음 젠 예정 시간(HH:MM)을 입력하세요. (예: 18:45)')
+        .setDescription('다음 젠 예정 시간(HH:MM:SS)을 입력하세요. (예: 18:45:30)')
         .setRequired(true)
     ),
 
