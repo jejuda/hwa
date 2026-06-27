@@ -266,6 +266,21 @@ async function announceVoice(text) {
   }
 }
 
+// Helper: Send text message to notification channel
+async function sendTextNotification(text) {
+  try {
+    const channelId = await db.getSetting('notification_channel');
+    if (!channelId) return;
+
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (channel) {
+      await channel.send(text);
+    }
+  } catch (err) {
+    console.error('Failed to send text notification:', err);
+  }
+}
+
 // State trackers for hourly events
 let lastShugo55Hour = -1;
 let lastShugo00Hour = -1;
@@ -282,18 +297,21 @@ async function checkUpcomingSpawns() {
     if (currentMinute === 55 && lastShugo55Hour !== currentHour) {
       lastShugo55Hour = currentHour;
       await announceVoice("슈고페스타 5분 남았습니다.");
+      await sendTextNotification("📢 **슈고페스타** 5분 남았습니다! @here");
     }
 
     // 2. At 0 minutes: "슈고페스타 시간입니다."
     if (currentMinute === 0 && lastShugo00Hour !== currentHour) {
       lastShugo00Hour = currentHour;
       await announceVoice("슈고페스타 시간입니다.");
+      await sendTextNotification("🎉 **슈고페스타** 시간입니다! @here");
     }
 
     // 3. At 30 minutes: "습격 시간입니다."
     if (currentMinute === 30 && lastRaid30Hour !== currentHour) {
       lastRaid30Hour = currentHour;
       await announceVoice("습격 시간입니다.");
+      await sendTextNotification("⚔️ **습격** 시간입니다! @here");
     }
 
     const channelId = await db.getSetting('notification_channel');
