@@ -77,15 +77,22 @@ function parseTimeInput(timeStr) {
 
   // Case 2: Custom hh, mm, ss parse
   const { hh, mm, ss } = parseTimeString(timeStr);
-  const date = new Date();
-  date.setHours(hh, mm, ss, 0);
+  
+  // Get current KST time
+  const nowUTC = new Date();
+  const kstOffset = 9 * 60 * 60 * 1000;
+  const nowKST = new Date(nowUTC.getTime() + kstOffset);
+
+  const targetKST = new Date(nowKST);
+  targetKST.setUTCHours(hh, mm, ss, 0);
 
   // Timezone / Day rollover adjustment
-  const now = new Date();
-  if (date.getTime() - now.getTime() > 15 * 60 * 1000) {
-    date.setDate(date.getDate() - 1);
+  if (targetKST.getTime() - nowKST.getTime() > 15 * 60 * 1000) {
+    targetKST.setUTCDate(targetKST.getUTCDate() - 1);
   }
-  return date;
+
+  const targetUTC = new Date(targetKST.getTime() - kstOffset);
+  return targetUTC;
 }
 
 // Helper: Parse future time inputs like "18:45:30", "1845"
@@ -94,16 +101,23 @@ function parseFutureTimeInput(timeStr) {
   timeStr = timeStr.trim();
 
   const { hh, mm, ss } = parseTimeString(timeStr);
-  const date = new Date();
-  date.setHours(hh, mm, ss, 0);
+  
+  // Get current KST time
+  const nowUTC = new Date();
+  const kstOffset = 9 * 60 * 60 * 1000;
+  const nowKST = new Date(nowUTC.getTime() + kstOffset);
+
+  const targetKST = new Date(nowKST);
+  targetKST.setUTCHours(hh, mm, ss, 0);
 
   // If parsed time is in the past by more than 15 minutes,
   // we assume the user refers to tomorrow's spawn.
-  const now = new Date();
-  if (date.getTime() - now.getTime() < -15 * 60 * 1000) {
-    date.setDate(date.getDate() + 1);
+  if (targetKST.getTime() - nowKST.getTime() < -15 * 60 * 1000) {
+    targetKST.setUTCDate(targetKST.getUTCDate() + 1);
   }
-  return date;
+
+  const targetUTC = new Date(targetKST.getTime() - kstOffset);
+  return targetUTC;
 }
 
 // Helper: Parse HH MM SS variations
@@ -140,9 +154,12 @@ function formatDateTime(dateVal) {
   if (!dateVal) return '기록 없음';
   const d = new Date(dateVal);
   
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const targetDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const kstOffset = 9 * 60 * 60 * 1000;
+  const nowKST = new Date(Date.now() + kstOffset);
+  const targetKST = new Date(d.getTime() + kstOffset);
+
+  const today = new Date(nowKST.getUTCFullYear(), nowKST.getUTCMonth(), nowKST.getUTCDate());
+  const targetDay = new Date(targetKST.getUTCFullYear(), targetKST.getUTCMonth(), targetKST.getUTCDate());
 
   const diffTime = targetDay - today;
   const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
@@ -151,11 +168,11 @@ function formatDateTime(dateVal) {
   if (diffDays === 0) dayStr = '오늘';
   else if (diffDays === 1) dayStr = '내일';
   else if (diffDays === -1) dayStr = '어제';
-  else dayStr = `${d.getMonth() + 1}/${d.getDate()}`;
+  else dayStr = `${targetKST.getUTCMonth() + 1}/${targetKST.getUTCDate()}`;
 
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
+  const hh = String(targetKST.getUTCHours()).padStart(2, '0');
+  const mm = String(targetKST.getUTCMinutes()).padStart(2, '0');
+  const ss = String(targetKST.getUTCSeconds()).padStart(2, '0');
   return `${dayStr} ${hh}:${mm}:${ss}`;
 }
 

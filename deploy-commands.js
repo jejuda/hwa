@@ -10,17 +10,30 @@ if (!DISCORD_TOKEN || !CLIENT_ID) {
   process.exit(1);
 }
 
+const BOSS_CHOICES = [
+  { name: '노블루드 (4시간)', value: '노블루드' },
+  { name: '악시오스 (4시간)', value: '악시오스' },
+  { name: '바르시엔 (4시간)', value: '바르시엔' },
+  { name: '구루타 (6시간)', value: '구루타' },
+  { name: '카루카 (4시간)', value: '카루카' },
+  { name: '비슈베다 (6시간)', value: '비슈베다' },
+  { name: '쉬라크 (6시간)', value: '쉬라크' },
+  { name: '타르탄 (6시간)', value: '타르탄' },
+  { name: '카샤파 (6시간)', value: '카샤파' },
+  { name: '라그타 (12시간)', value: '라그타' },
+  { name: '가르투아 (12시간)', value: '가르투아' }
+];
+
 const commands = [
-
-
   // /보스수정 [이름] [젠주기] [메모]
   new SlashCommandBuilder()
     .setName('보스수정')
     .setDescription('등록된 보스의 정보를 수정합니다.')
     .addStringOption(option =>
       option.setName('이름')
-        .setDescription('수정할 보스의 이름을 입력하세요.')
+        .setDescription('보스 이름을 선택하세요.')
         .setRequired(true)
+        .addChoices(...BOSS_CHOICES)
     )
     .addNumberOption(option =>
       option.setName('젠주기')
@@ -49,8 +62,9 @@ const commands = [
     .setDescription('보스 처치(컷) 시간을 기록합니다.')
     .addStringOption(option =>
       option.setName('이름')
-        .setDescription('처치한 보스 이름을 입력하세요.')
+        .setDescription('보스 이름을 선택하세요.')
         .setRequired(true)
+        .addChoices(...BOSS_CHOICES)
     )
     .addStringOption(option =>
       option.setName('시간')
@@ -64,8 +78,9 @@ const commands = [
     .setDescription('다음 보스 젠 예정 시간을 직접 기록합니다.')
     .addStringOption(option =>
       option.setName('이름')
-        .setDescription('보스 이름을 입력하세요.')
+        .setDescription('보스 이름을 선택하세요.')
         .setRequired(true)
+        .addChoices(...BOSS_CHOICES)
     )
     .addStringOption(option =>
       option.setName('시간')
@@ -79,8 +94,9 @@ const commands = [
     .setDescription('보스의 최근 처치/젠 기록을 취소하고 이전 상태로 되돌립니다.')
     .addStringOption(option =>
       option.setName('이름')
-        .setDescription('되돌릴 보스 이름을 입력하세요.')
+        .setDescription('보스 이름을 선택하세요.')
         .setRequired(true)
+        .addChoices(...BOSS_CHOICES)
     ),
 
   // /알림채널설정 [채널]
