@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, EmbedBuilder, ActivityType } from 'discord.js';
+import { Client, GatewayIntentBits, EmbedBuilder, ActivityType, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { joinVoiceChannel, createAudioPlayer, createAudioResource, getVoiceConnection } from '@discordjs/voice';
 import ffmpeg from 'ffmpeg-static';
 import dotenv from 'dotenv';
@@ -360,18 +360,48 @@ async function checkUpcomingSpawns() {
 
       // 10 minutes alert (10m >= remaining > 5m)
       if (diffMins <= 10 && diffMins > 5 && record.notified_10 === 0) {
-        await channel.send(`📢 **${record.name}** 젠 10분 전! (예정 시간: ${formatDateTime(nextSpawn)})`);
+        const cutButton = new ButtonBuilder()
+          .setCustomId(`cut_${record.name}`)
+          .setLabel(`${record.name} 컷 기록`)
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('⚔️');
+        const row = new ActionRowBuilder().addComponents(cutButton);
+
+        await channel.send({
+          content: `📢 **${record.name}** 젠 10분 전! (예정 시간: ${formatDateTime(nextSpawn)})`,
+          components: [row]
+        });
         await db.markNotified(record.name, '10');
       }
       // 5 minutes alert (5m >= remaining > 0m)
       else if (diffMins <= 5 && diffMins > 0 && record.notified_5 === 0) {
-        await channel.send(`⚠️ **${record.name}** 젠 5분 전! (예정 시간: ${formatDateTime(nextSpawn)})`);
+        const cutButton = new ButtonBuilder()
+          .setCustomId(`cut_${record.name}`)
+          .setLabel(`${record.name} 컷 기록`)
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('⚔️');
+        const row = new ActionRowBuilder().addComponents(cutButton);
+
+        await channel.send({
+          content: `⚠️ **${record.name}** 젠 5분 전! (예정 시간: ${formatDateTime(nextSpawn)})`,
+          components: [row]
+        });
         await db.markNotified(record.name, '5');
         await triggerVoiceTTS(record.name);
       }
       // Spawn alert (0m >= remaining > -10m)
       else if (diffMins <= 0 && diffMins > -10 && record.notified_0 === 0) {
-        await channel.send(`⚔️ **${record.name}** 출현했습니다! 어서 처치하세요!`);
+        const cutButton = new ButtonBuilder()
+          .setCustomId(`cut_${record.name}`)
+          .setLabel(`${record.name} 컷 기록`)
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('⚔️');
+        const row = new ActionRowBuilder().addComponents(cutButton);
+
+        await channel.send({
+          content: `⚔️ **${record.name}** 출현했습니다! 어서 처치하세요!`,
+          components: [row]
+        });
         await db.markNotified(record.name, '0');
         await announceVoice(`${record.name} 출현했습니다.`);
       }
@@ -383,6 +413,42 @@ async function checkUpcomingSpawns() {
 
 // Event: Interaction Command Router
 client.on('interactionCreate', async interaction => {
+  if (interaction.isButton()) {
+    const customId = interaction.customId;
+    if (customId.startsWith('cut_')) {
+      const bossName = customId.substring(4);
+      try {
+        const boss = await db.getBoss(bossName);
+        if (!boss) {
+          return interaction.reply({ content: `❌ 보스 정보를 찾을 수 없습니다: **${bossName}**`, ephemeral: true });
+        }
+
+        const killTime = new Date();
+        const nextSpawnTime = new Date(killTime.getTime() + boss.cooldown * 60 * 1000);
+        
+        await db.recordKill(boss.name, killTime, nextSpawnTime);
+
+        const responseEmbed = new EmbedBuilder()
+          .setTitle(`⚔️ ${boss.name} 컷 기록 완료 (버튼 클릭)`)
+          .setColor(0xFF4500)
+          .addFields(
+            { name: '처치(컷) 시간', value: `\`${formatDateTime(killTime)}\``, inline: true },
+            { name: '다음 젠 예정', value: `\`${formatDateTime(nextSpawnTime)}\``, inline: true },
+            { name: '남은 시간', value: `\`${formatRemainingTime(nextSpawnTime)}\``, inline: false }
+          )
+          .setTimestamp();
+
+        await interaction.reply({ embeds: [responseEmbed] });
+      } catch (err) {
+        console.error('Error handling button cut:', err);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ content: `❌ 오류가 발생했습니다: ${err.message}`, ephemeral: true });
+        }
+      }
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName } = interaction;
