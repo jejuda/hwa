@@ -1,0 +1,21 @@
+{
+  "name": "discord-bosstimer-bot",
+  "version": "1.0.0",
+  "description": "Discord Boss Timer Bot",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "deploy": "node deploy-commands.js"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "discord.js": "^14.18.0",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "ffmpeg-static": "^5.3.0",
+    "libsodium-wrappers": "^0.8.4",
+    "opusscript": "^0.0.8",
+    "sqlite3": "^5.1.7"
+  }
+}
