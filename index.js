@@ -5,11 +5,42 @@ import dotenv from 'dotenv';
 import * as db from './database.js';
 import { Communicate } from 'edge-tts-universal';
 import { Readable } from 'stream';
+import https from 'https';
 
 dotenv.config();
 
 // Enforce FFmpeg binary path for voice transcoding
 process.env.FFMPEG_PATH = ffmpeg;
+
+// Time synchronization variables and helpers to handle hosting provider clock drift
+let timeOffset = 0;
+
+async function syncTime() {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    const req = https.request('https://www.google.com', { method: 'HEAD' }, (res) => {
+      const serverDateStr = res.headers.date;
+      if (serverDateStr) {
+        const endTime = Date.now();
+        const latency = (endTime - startTime) / 2;
+        const serverTime = new Date(serverDateStr).getTime() + latency;
+        const localTime = endTime;
+        timeOffset = serverTime - localTime;
+        console.log(`⏰ Time synchronized with Google. Offset: ${timeOffset}ms (Latency: ${latency}ms)`);
+      }
+      resolve();
+    });
+    req.on('error', (err) => {
+      console.error('Failed to sync time:', err.message);
+      resolve();
+    });
+    req.end();
+  });
+}
+
+function getCurrentTime() {
+  return new Date(Date.now() + timeOffset);
+}
 
 
 const { DISCORD_TOKEN } = process.env;
@@ -31,6 +62,11 @@ const client = new Client({
 // Initialize Bot
 client.once('clientReady', async () => {
   console.log(`🤖 Logged in as ${client.user.tag}!`);
+  
+  // Sync time on startup
+  await syncTime();
+  // Keep time synced every 30 minutes
+  setInterval(syncTime, 30 * 60 * 1000);
   
   // Set activity status
   client.user.setActivity('보스 젠 감시', { type: ActivityType.Watching });
@@ -65,13 +101,13 @@ client.once('clientReady', async () => {
 
 // Helper: Parse time inputs like "14:30:15", "1430", "10분전", "10"
 function parseTimeInput(timeStr) {
-  if (!timeStr) return new Date();
+  if (!timeStr) return getCurrentTime();
   timeStr = timeStr.trim();
 
   // Case 1: "10분전" or "10분" or "10"
   if (/^\d+(분전|분)?$/.test(timeStr)) {
     const mins = parseInt(timeStr.match(/^\d+/)[0], 10);
-    const date = new Date();
+    const date = getCurrentTime();
     date.setMinutes(date.getMinutes() - mins);
     date.setSeconds(0, 0); // Reset seconds for relative time
     return date;
@@ -81,7 +117,7 @@ function parseTimeInput(timeStr) {
   const { hh, mm, ss } = parseTimeString(timeStr);
   
   // Get current KST time
-  const nowUTC = new Date();
+  const nowUTC = getCurrentTime();
   const kstOffset = 9 * 60 * 60 * 1000;
   const nowKST = new Date(nowUTC.getTime() + kstOffset);
 
@@ -105,7 +141,7 @@ function parseFutureTimeInput(timeStr) {
   const { hh, mm, ss } = parseTimeString(timeStr);
   
   // Get current KST time
-  const nowUTC = new Date();
+  const nowUTC = getCurrentTime();
   const kstOffset = 9 * 60 * 60 * 1000;
   const nowKST = new Date(nowUTC.getTime() + kstOffset);
 
@@ -169,7 +205,7 @@ function formatDateTime(dateVal) {
   const d = new Date(dateVal);
   
   const kstOffset = 9 * 60 * 60 * 1000;
-  const nowKST = new Date(Date.now() + kstOffset);
+  const nowKST = new Date(getCurrentTime().getTime() + kstOffset);
   const targetKST = new Date(d.getTime() + kstOffset);
 
   const today = new Date(nowKST.getUTCFullYear(), nowKST.getUTCMonth(), nowKST.getUTCDate());
@@ -194,7 +230,7 @@ function formatDateTime(dateVal) {
 function formatRemainingTime(dateVal) {
   if (!dateVal) return '-';
   const d = new Date(dateVal);
-  const now = new Date();
+  const now = getCurrentTime();
   const diffMs = d - now;
 
   if (diffMs < 0) {
@@ -330,7 +366,7 @@ let lastRaid30Hour = -1;
 // Background scheduler: Check soon spawning bosses
 async function checkUpcomingSpawns() {
   try {
-    const now = new Date();
+    const now = getCurrentTime();
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
 
@@ -433,7 +469,7 @@ client.on('interactionCreate', async interaction => {
           return interaction.reply({ content: `❌ 보스 정보를 찾을 수 없습니다: **${bossName}**`, ephemeral: true });
         }
 
-        const killTime = new Date();
+        const killTime = getCurrentTime();
         const nextSpawnTime = new Date(killTime.getTime() + boss.cooldown * 60 * 1000);
         
         await db.recordKill(boss.name, killTime, nextSpawnTime);
@@ -552,7 +588,7 @@ client.on('interactionCreate', async interaction => {
           emoji = '❔';
           statusText = '기록 없음';
         } else {
-          const isOver = new Date(boss.next_spawn) <= new Date();
+          const isOver = new Date(boss.next_spawn) <= getCurrentTime();
           if (isOver) {
             emoji = '⚔️';
             statusText = `**${remainingStr}**`;
