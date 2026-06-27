@@ -252,9 +252,50 @@ async function triggerVoiceTTS(bossName) {
   }
 }
 
+// Helper: Play custom voice announcement
+async function announceVoice(text) {
+  try {
+    const channelId = await db.getSetting('voice_channel');
+    const guildId = await db.getSetting('voice_guild');
+
+    if (!channelId || !guildId) return;
+
+    await playTTS(guildId, channelId, text);
+  } catch (err) {
+    console.error('Failed to play voice announcement:', err);
+  }
+}
+
+// State trackers for hourly events
+let lastShugo55Hour = -1;
+let lastShugo00Hour = -1;
+let lastRaid30Hour = -1;
+
 // Background scheduler: Check soon spawning bosses
 async function checkUpcomingSpawns() {
   try {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+
+    // 1. At 55 minutes: "슈고페스타 5분 남았습니다."
+    if (currentMinute === 55 && lastShugo55Hour !== currentHour) {
+      lastShugo55Hour = currentHour;
+      await announceVoice("슈고페스타 5분 남았습니다.");
+    }
+
+    // 2. At 0 minutes: "슈고페스타 시간입니다."
+    if (currentMinute === 0 && lastShugo00Hour !== currentHour) {
+      lastShugo00Hour = currentHour;
+      await announceVoice("슈고페스타 시간입니다.");
+    }
+
+    // 3. At 30 minutes: "습격 시간입니다."
+    if (currentMinute === 30 && lastRaid30Hour !== currentHour) {
+      lastRaid30Hour = currentHour;
+      await announceVoice("습격 시간입니다.");
+    }
+
     const channelId = await db.getSetting('notification_channel');
     if (!channelId) return;
 
@@ -262,7 +303,6 @@ async function checkUpcomingSpawns() {
     if (!channel) return;
 
     const records = await db.getActiveNotifications();
-    const now = new Date();
 
     for (const record of records) {
       const nextSpawn = new Date(record.next_spawn);
