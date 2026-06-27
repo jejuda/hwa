@@ -3,6 +3,8 @@ import { joinVoiceChannel, createAudioPlayer, createAudioResource, getVoiceConne
 import ffmpeg from 'ffmpeg-static';
 import dotenv from 'dotenv';
 import * as db from './database.js';
+import { Communicate } from 'edge-tts-universal';
+import { Readable } from 'stream';
 
 dotenv.config();
 
@@ -248,8 +250,18 @@ async function playTTS(guildId, channelId, text) {
 
     connection.subscribe(audioPlayer);
 
-    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=ko&client=tw-ob&q=${encodeURIComponent(text)}`;
-    const resource = createAudioResource(ttsUrl);
+    const communicate = new Communicate(text, {
+      voice: 'ko-KR-SunHiNeural'
+    });
+    const readable = Readable.from((async function* () {
+      for await (const chunk of communicate.stream()) {
+        if (chunk.type === 'audio' && chunk.data) {
+          yield chunk.data;
+        }
+      }
+    })());
+
+    const resource = createAudioResource(readable);
     audioPlayer.play(resource);
   } catch (err) {
     console.error('Error in playTTS:', err);
