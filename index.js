@@ -420,8 +420,8 @@ async function checkUpcomingSpawns() {
         await db.markNotified(record.name, '5');
         await triggerVoiceTTS(record.name);
       }
-      // Spawn alert (0m >= remaining > -10m)
-      else if (diffMins <= 0 && diffMins > -10 && record.notified_0 === 0) {
+      // Spawn alert (20 seconds remaining >= remaining > -10m)
+      else if (diffMs <= 20000 && diffMs > -600000 && record.notified_0 === 0) {
         const cutButton = new ButtonBuilder()
           .setCustomId(`cut_${record.name}`)
           .setLabel(`${record.name} 컷 기록`)
@@ -430,11 +430,11 @@ async function checkUpcomingSpawns() {
         const row = new ActionRowBuilder().addComponents(cutButton);
 
         await channel.send({
-          content: `⚔️ **${record.name}** 출현했습니다! 어서 처치하세요!`,
+          content: `⚔️ **${record.name}** 곧 출현합니다!`,
           components: [row]
         });
         await db.markNotified(record.name, '0');
-        await announceVoice(`${record.name} 출현했습니다.`);
+        await announceVoice(`${record.name} 곧 출현합니다.`);
       }
     }
   } catch (error) {
