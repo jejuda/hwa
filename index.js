@@ -451,7 +451,6 @@ client.on('interactionCreate', async interaction => {
 
       const nextSpawnTime = new Date(killTime.getTime() + boss.cooldown * 60 * 1000);
       await db.recordKill(boss.name, killTime, nextSpawnTime);
-      broadcastSSE({ type: 'boss_updated' });
 
       const responseEmbed = new EmbedBuilder()
         .setTitle(`⚔️ ${boss.name} 컷 기록 완료`)
@@ -487,7 +486,6 @@ client.on('interactionCreate', async interaction => {
       }
 
       await db.recordSpawn(boss.name, nextSpawnTime);
-      broadcastSSE({ type: 'boss_updated' });
 
       const responseEmbed = new EmbedBuilder()
         .setTitle(`🗓️ ${boss.name} 젠 예정 시간 지정`)
@@ -515,7 +513,6 @@ client.on('interactionCreate', async interaction => {
       const boss = res.boss;
       try {
         await db.rollbackRecord(boss.name);
-        broadcastSSE({ type: 'boss_updated' });
         const updated = await db.getBoss(boss.name);
         
         const responseEmbed = new EmbedBuilder()
