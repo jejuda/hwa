@@ -122,7 +122,9 @@ function parseFutureTimeInput(timeStr) {
 
 // Helper: Parse HH MM SS variations
 function parseTimeString(timeStr) {
-  const normalized = timeStr.replace(/[\s:]+/g, ':');
+  // Replace '시', '분', '초' with ':' and strip other non-digit, non-colon chars.
+  const cleaned = timeStr.replace(/시|분|초/g, ':').replace(/[^0-9:]/g, '');
+  const normalized = cleaned.replace(/:+/g, ':').replace(/^:|:$/g, '');
   let hh, mm, ss = 0;
 
   if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(normalized)) {
@@ -130,16 +132,16 @@ function parseTimeString(timeStr) {
     hh = parseInt(parts[0], 10);
     mm = parseInt(parts[1], 10);
     ss = parts[2] ? parseInt(parts[2], 10) : 0;
-  } else if (/^\d{4}$/.test(timeStr)) {
-    hh = parseInt(timeStr.substring(0, 2), 10);
-    mm = parseInt(timeStr.substring(2, 4), 10);
+  } else if (/^\d{4}$/.test(normalized)) {
+    hh = parseInt(normalized.substring(0, 2), 10);
+    mm = parseInt(normalized.substring(2, 4), 10);
     ss = 0;
-  } else if (/^\d{6}$/.test(timeStr)) {
-    hh = parseInt(timeStr.substring(0, 2), 10);
-    mm = parseInt(timeStr.substring(2, 4), 10);
-    ss = parseInt(timeStr.substring(4, 6), 10);
+  } else if (/^\d{6}$/.test(normalized)) {
+    hh = parseInt(normalized.substring(0, 2), 10);
+    mm = parseInt(normalized.substring(2, 4), 10);
+    ss = parseInt(normalized.substring(4, 6), 10);
   } else {
-    throw new Error('올바른 시간 형식이 아닙니다. (예: 14:30:15, 14 30, 143015)');
+    throw new Error('올바른 시간 형식이 아닙니다. (예: 14:30, 20:45, 1430, 20시 45분)');
   }
 
   if (hh < 0 || hh > 23 || mm < 0 || mm > 59 || ss < 0 || ss > 59) {
