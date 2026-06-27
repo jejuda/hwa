@@ -530,6 +530,7 @@ client.on('interactionCreate', async interaction => {
         .setTimestamp();
 
       let description = '';
+      const namesList = [];
       sortedList.forEach((boss, index) => {
         const nextSpawnStr = formatDateTime(boss.next_spawn);
         const remainingStr = formatRemainingTime(boss.next_spawn);
@@ -558,7 +559,11 @@ client.on('interactionCreate', async interaction => {
           description += `└ 상태: \`${statusText}\`\n`;
         }
         description += '\n';
+
+        namesList.push(boss.name);
       });
+
+      description += `**✍️ 복사용 한줄 요약**\n\`${namesList.join(', ')}\``;
 
       embed.setDescription(description);
       await interaction.reply({ embeds: [embed] });
