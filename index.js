@@ -297,21 +297,21 @@ async function checkUpcomingSpawns() {
     if (currentMinute === 55 && lastShugo55Hour !== currentHour) {
       lastShugo55Hour = currentHour;
       await announceVoice("슈고페스타 5분 남았습니다.");
-      await sendTextNotification("📢 **슈고페스타** 5분 남았습니다! @here");
+      await sendTextNotification("📢 **슈고페스타** 5분 남았습니다!");
     }
 
     // 2. At 0 minutes: "슈고페스타 시간입니다."
     if (currentMinute === 0 && lastShugo00Hour !== currentHour) {
       lastShugo00Hour = currentHour;
       await announceVoice("슈고페스타 시간입니다.");
-      await sendTextNotification("🎉 **슈고페스타** 시간입니다! @here");
+      await sendTextNotification("🎉 **슈고페스타** 시간입니다!");
     }
 
     // 3. At 30 minutes: "습격 시간입니다."
     if (currentMinute === 30 && lastRaid30Hour !== currentHour) {
       lastRaid30Hour = currentHour;
       await announceVoice("습격 시간입니다.");
-      await sendTextNotification("⚔️ **습격** 시간입니다! @here");
+      await sendTextNotification("⚔️ **습격** 시간입니다!");
     }
 
     const channelId = await db.getSetting('notification_channel');
@@ -329,18 +329,18 @@ async function checkUpcomingSpawns() {
 
       // 10 minutes alert (10m >= remaining > 5m)
       if (diffMins <= 10 && diffMins > 5 && record.notified_10 === 0) {
-        await channel.send(`📢 **${record.name}** 젠 10분 전! (예정 시간: ${formatDateTime(nextSpawn)}) @here`);
+        await channel.send(`📢 **${record.name}** 젠 10분 전! (예정 시간: ${formatDateTime(nextSpawn)})`);
         await db.markNotified(record.name, '10');
       }
       // 5 minutes alert (5m >= remaining > 0m)
       else if (diffMins <= 5 && diffMins > 0 && record.notified_5 === 0) {
-        await channel.send(`⚠️ **${record.name}** 젠 5분 전! (예정 시간: ${formatDateTime(nextSpawn)}) @here`);
+        await channel.send(`⚠️ **${record.name}** 젠 5분 전! (예정 시간: ${formatDateTime(nextSpawn)})`);
         await db.markNotified(record.name, '5');
         await triggerVoiceTTS(record.name);
       }
       // Spawn alert (0m >= remaining > -10m)
       else if (diffMins <= 0 && diffMins > -10 && record.notified_0 === 0) {
-        await channel.send(`⚔️ **${record.name}** 출현했습니다! 어서 처치하세요! @here`);
+        await channel.send(`⚔️ **${record.name}** 출현했습니다! 어서 처치하세요!`);
         await db.markNotified(record.name, '0');
         await announceVoice(`${record.name} 출현했습니다.`);
       }
