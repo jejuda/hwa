@@ -3,7 +3,6 @@ import { joinVoiceChannel, createAudioPlayer, createAudioResource, getVoiceConne
 import ffmpeg from 'ffmpeg-static';
 import dotenv from 'dotenv';
 import * as db from './database.js';
-import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 
 dotenv.config();
 
@@ -230,10 +229,8 @@ async function playTTS(guildId, channelId, text) {
 
     connection.subscribe(audioPlayer);
 
-    const tts = new MsEdgeTTS();
-    await tts.setMetadata("ko-KR-SunHiNeural", OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-    const readable = await tts.toStream(text);
-    const resource = createAudioResource(readable);
+    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=ko&client=tw-ob&q=${encodeURIComponent(text)}`;
+    const resource = createAudioResource(ttsUrl);
     audioPlayer.play(resource);
   } catch (err) {
     console.error('Error in playTTS:', err);
