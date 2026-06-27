@@ -404,23 +404,8 @@ async function checkUpcomingSpawns() {
       const diffMs = nextSpawn - now;
       const diffMins = diffMs / 60000;
 
-      // 10 minutes alert (10m >= remaining > 5m)
-      if (diffMins <= 10 && diffMins > 5 && record.notified_10 === 0) {
-        const cutButton = new ButtonBuilder()
-          .setCustomId(`cut_${record.name}`)
-          .setLabel(`${record.name} 컷 기록`)
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji('⚔️');
-        const row = new ActionRowBuilder().addComponents(cutButton);
-
-        await channel.send({
-          content: `📢 **${record.name}** 젠 10분 전! (예정 시간: ${formatDateTime(nextSpawn)})`,
-          components: [row]
-        });
-        await db.markNotified(record.name, '10');
-      }
       // 5 minutes alert (5m >= remaining > 0m)
-      else if (diffMins <= 5 && diffMins > 0 && record.notified_5 === 0) {
+      if (diffMins <= 5 && diffMins > 0 && record.notified_5 === 0) {
         const cutButton = new ButtonBuilder()
           .setCustomId(`cut_${record.name}`)
           .setLabel(`${record.name} 컷 기록`)
