@@ -199,6 +199,41 @@ function parseTimeString(timeStr) {
   return { hh, mm, ss };
 }
 
+// Helper: Parse remaining time like "30분남음", "30", "1시간 30분"
+function parseRemainingTime(timeStr) {
+  const cleaned = timeStr.replace(/\s+/g, '');
+  
+  // Pattern 1: X시간 Y분 (optionally followed by 남음)
+  const hourMinMatch = cleaned.match(/^(\d+)시간(\d+)분?(남음)?$/);
+  if (hourMinMatch) {
+    const hours = parseInt(hourMinMatch[1], 10);
+    const mins = parseInt(hourMinMatch[2], 10);
+    return hours * 60 + mins;
+  }
+  
+  // Pattern 2: X시간 (optionally followed by 남음)
+  const hourMatch = cleaned.match(/^(\d+)시간(남음)?$/);
+  if (hourMatch) {
+    const hours = parseInt(hourMatch[1], 10);
+    return hours * 60;
+  }
+  
+  // Pattern 3: Y분 (optionally followed by 남음)
+  const minMatch = cleaned.match(/^(\d+)분(남음)?$/);
+  if (minMatch) {
+    return parseInt(minMatch[1], 10);
+  }
+  
+  // Pattern 4: just digits
+  if (/^\d+$/.test(cleaned)) {
+    if (cleaned.length < 3) {
+      return parseInt(cleaned, 10);
+    }
+  }
+  
+  return null;
+}
+
 // Helper: Format Dates to localized string (오늘/내일/어제 HH:MM:SS)
 function formatDateTime(dateVal) {
   if (!dateVal) return '기록 없음';
@@ -668,21 +703,31 @@ client.on('interactionCreate', async interaction => {
 
       const boss = res.boss;
       let nextSpawnTime;
-      try {
-        nextSpawnTime = parseFutureTimeInput(timeStr);
-      } catch (err) {
-        return interaction.reply({ content: `❌ ${err.message}`, ephemeral: true });
+      let estimatedKillTime;
+      const parsedMins = parseRemainingTime(timeStr);
+
+      if (parsedMins !== null) {
+        nextSpawnTime = new Date(getCurrentTime().getTime() + parsedMins * 60 * 1000);
+        estimatedKillTime = new Date(nextSpawnTime.getTime() - boss.cooldown * 60 * 1000);
+      } else {
+        try {
+          nextSpawnTime = parseFutureTimeInput(timeStr);
+          estimatedKillTime = new Date(nextSpawnTime.getTime() - boss.cooldown * 60 * 1000);
+        } catch (err) {
+          return interaction.reply({ content: `❌ ${err.message}`, ephemeral: true });
+        }
       }
 
-      await db.recordSpawn(boss.name, nextSpawnTime);
+      await db.recordKill(boss.name, estimatedKillTime, nextSpawnTime);
       lastCacheFetch = 0;
 
       const responseEmbed = new EmbedBuilder()
         .setTitle(`🗓️ ${boss.name} 젠 예정 시간 지정`)
         .setColor(0xFFD700)
         .addFields(
+          { name: '처치(컷) 시간 (추정)', value: `\`${formatDateTime(estimatedKillTime)}\``, inline: true },
           { name: '다음 젠 예정', value: `\`${formatDateTime(nextSpawnTime)}\``, inline: true },
-          { name: '남은 시간', value: `\`${formatRemainingTime(nextSpawnTime)}\``, inline: true }
+          { name: '남은 시간', value: `\`${formatRemainingTime(nextSpawnTime)}\``, inline: false }
         )
         .setTimestamp();
 

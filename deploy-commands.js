@@ -89,7 +89,7 @@ const commands = [
     )
     .addStringOption(option =>
       option.setName('시간')
-        .setDescription('다음 젠 예정 시간(HH:MM:SS)을 입력하세요. (예: 18:45:30)')
+        .setDescription('다음 젠 예정 시간(HH:MM:SS) 또는 남은 시간(분)을 입력하세요. (예: 18:45:30, 30, 30분, 1시간30분)')
         .setRequired(true)
     ),
 
