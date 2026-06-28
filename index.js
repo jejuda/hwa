@@ -207,6 +207,26 @@ function parseRemainingTime(timeStr) {
   const isExplicitRemaining = cleaned.includes('남음');
   
   if (isExplicitRemaining) {
+    // Check if it has colons (e.g. 1:35:40남음 or 1:30남음)
+    const colonStr = cleaned.replace('남음', '');
+    if (colonStr.includes(':')) {
+      const parts = colonStr.split(':');
+      let totalSeconds = 0;
+      if (parts.length === 3) {
+        // HH:MM:SS
+        const hours = parseInt(parts[0], 10) || 0;
+        const mins = parseInt(parts[1], 10) || 0;
+        const secs = parseInt(parts[2], 10) || 0;
+        totalSeconds = hours * 3600 + mins * 60 + secs;
+      } else if (parts.length === 2) {
+        // HH:MM
+        const hours = parseInt(parts[0], 10) || 0;
+        const mins = parseInt(parts[1], 10) || 0;
+        totalSeconds = hours * 3600 + mins * 60;
+      }
+      return totalSeconds / 60;
+    }
+
     let totalSeconds = 0;
     
     // Find hours (시 or 시간)
