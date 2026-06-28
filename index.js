@@ -95,8 +95,8 @@ client.once('clientReady', async () => {
     process.exit(1);
   }
 
-  // Start background monitoring scheduler (runs every 10 seconds)
-  setInterval(checkUpcomingSpawns, 10000);
+  // Start background monitoring scheduler (runs every 1 second for 1-second precision)
+  setInterval(checkUpcomingSpawns, 1000);
 });
 
 // Helper: Parse time inputs like "14:30:15", "1430", "10분전", "10"
@@ -363,6 +363,11 @@ let lastShugo55Hour = -1;
 let lastShugo00Hour = -1;
 let lastRaid30Hour = -1;
 
+// Global scheduler database cache variables
+let cachedRecords = [];
+let cachedNotificationChannel = null;
+let lastCacheFetch = 0;
+
 // Background scheduler: Check soon spawning bosses
 async function checkUpcomingSpawns() {
   try {
@@ -391,21 +396,29 @@ async function checkUpcomingSpawns() {
       await sendTextNotification("⚔️ **습격** 시간입니다!");
     }
 
-    const channelId = await db.getSetting('notification_channel');
-    if (!channelId) return;
+    // Refresh database cache every 5 seconds
+    const nowMs = Date.now();
+    if (nowMs - lastCacheFetch > 5000 || cachedRecords.length === 0) {
+      cachedRecords = await db.getActiveNotifications();
+      cachedNotificationChannel = await db.getSetting('notification_channel');
+      lastCacheFetch = nowMs;
+    }
 
-    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (!cachedNotificationChannel) return;
+
+    const channel = await client.channels.fetch(cachedNotificationChannel).catch(() => null);
     if (!channel) return;
 
-    const records = await db.getActiveNotifications();
-
-    for (const record of records) {
+    for (const record of cachedRecords) {
       const nextSpawn = new Date(record.next_spawn);
       const diffMs = nextSpawn - now;
       const diffMins = diffMs / 60000;
 
       // 5 minutes alert (5m >= remaining > 0m)
       if (diffMins <= 5 && diffMins > 0 && record.notified_5 === 0) {
+        // Prevent double-trigger in memory immediately
+        record.notified_5 = 1;
+
         const cutButton = new ButtonBuilder()
           .setCustomId(`cut_${record.name}`)
           .setLabel(`${record.name} 컷 기록`)
@@ -422,6 +435,9 @@ async function checkUpcomingSpawns() {
       }
       // Spawn alert (20 seconds remaining >= remaining > -10m)
       else if (diffMs <= 20000 && diffMs > -600000 && record.notified_0 === 0) {
+        // Prevent double-trigger in memory immediately
+        record.notified_0 = 1;
+
         const cutButton = new ButtonBuilder()
           .setCustomId(`cut_${record.name}`)
           .setLabel(`${record.name} 컷 기록`)
@@ -458,6 +474,7 @@ client.on('interactionCreate', async interaction => {
         const nextSpawnTime = new Date(killTime.getTime() + boss.cooldown * 60 * 1000);
         
         await db.recordKill(boss.name, killTime, nextSpawnTime);
+        lastCacheFetch = 0;
 
         const responseEmbed = new EmbedBuilder()
           .setTitle(`⚔️ ${boss.name} 컷 기록 완료 (버튼 클릭)`)
@@ -622,6 +639,7 @@ client.on('interactionCreate', async interaction => {
 
       const nextSpawnTime = new Date(killTime.getTime() + boss.cooldown * 60 * 1000);
       await db.recordKill(boss.name, killTime, nextSpawnTime);
+      lastCacheFetch = 0;
 
       const responseEmbed = new EmbedBuilder()
         .setTitle(`⚔️ ${boss.name} 컷 기록 완료`)
@@ -657,6 +675,7 @@ client.on('interactionCreate', async interaction => {
       }
 
       await db.recordSpawn(boss.name, nextSpawnTime);
+      lastCacheFetch = 0;
 
       const responseEmbed = new EmbedBuilder()
         .setTitle(`🗓️ ${boss.name} 젠 예정 시간 지정`)
@@ -684,6 +703,7 @@ client.on('interactionCreate', async interaction => {
       const boss = res.boss;
       try {
         await db.rollbackRecord(boss.name);
+        lastCacheFetch = 0;
         const updated = await db.getBoss(boss.name);
         
         const responseEmbed = new EmbedBuilder()
@@ -711,6 +731,7 @@ client.on('interactionCreate', async interaction => {
       }
 
       await db.setSetting('notification_channel', channel.id);
+      lastCacheFetch = 0;
       await interaction.reply(`✅ 보스 젠 알림 채널이 <#${channel.id}> (으)로 설정되었습니다.`);
     }
     
