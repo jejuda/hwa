@@ -199,32 +199,67 @@ function parseTimeString(timeStr) {
   return { hh, mm, ss };
 }
 
-// Helper: Parse remaining time like "30분남음", "30", "1시간 30분"
+// Helper: Parse remaining time like "30분남음", "30", "1시간 30분", "30분 20초 남음"
 function parseRemainingTime(timeStr) {
   const cleaned = timeStr.replace(/\s+/g, '');
   
-  // Pattern 1: X시간 Y분 (optionally followed by 남음)
-  const hourMinMatch = cleaned.match(/^(\d+)시간(\d+)분?(남음)?$/);
+  // If the input explicitly includes "남음", parse it as remaining time.
+  const isExplicitRemaining = cleaned.includes('남음');
+  
+  if (isExplicitRemaining) {
+    let totalSeconds = 0;
+    
+    // Find hours (시 or 시간)
+    const hourMatch = cleaned.match(/(\d+)(시|시간)/);
+    if (hourMatch) {
+      totalSeconds += parseInt(hourMatch[1], 10) * 3600;
+    }
+    
+    // Find minutes (분)
+    const minMatch = cleaned.match(/(\d+)분/);
+    if (minMatch) {
+      totalSeconds += parseInt(minMatch[1], 10) * 60;
+    }
+    
+    // Find seconds (초)
+    const secMatch = cleaned.match(/(\d+)초/);
+    if (secMatch) {
+      totalSeconds += parseInt(secMatch[1], 10);
+    }
+    
+    // Fallback if just digits were supplied with "남음" (e.g. "30남음")
+    if (totalSeconds === 0) {
+      const digitMatch = cleaned.match(/(\d+)/);
+      if (digitMatch) {
+        totalSeconds = parseInt(digitMatch[1], 10) * 60;
+      }
+    }
+    
+    return totalSeconds / 60;
+  }
+  
+  // Pattern 1: X시간 Y분
+  const hourMinMatch = cleaned.match(/^(\d+)시간(\d+)분?$/);
   if (hourMinMatch) {
     const hours = parseInt(hourMinMatch[1], 10);
     const mins = parseInt(hourMinMatch[2], 10);
     return hours * 60 + mins;
   }
   
-  // Pattern 2: X시간 (optionally followed by 남음)
-  const hourMatch = cleaned.match(/^(\d+)시간(남음)?$/);
+  // Pattern 2: X시간
+  const hourMatch = cleaned.match(/^(\d+)시간$/);
   if (hourMatch) {
     const hours = parseInt(hourMatch[1], 10);
     return hours * 60;
   }
   
-  // Pattern 3: Y분 (optionally followed by 남음)
-  const minMatch = cleaned.match(/^(\d+)분(남음)?$/);
+  // Pattern 3: Y분
+  const minMatch = cleaned.match(/^(\d+)분$/);
   if (minMatch) {
     return parseInt(minMatch[1], 10);
   }
   
-  // Pattern 4: just digits
+  // Pattern 4: just digits (length < 3)
   if (/^\d+$/.test(cleaned)) {
     if (cleaned.length < 3) {
       return parseInt(cleaned, 10);
