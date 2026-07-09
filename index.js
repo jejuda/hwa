@@ -1007,10 +1007,6 @@ client.on('interactionCreate', async interaction => {
 
         lastCacheFetch = 0; // Invalidate cache immediately
 
-        if (apiKey === 'K87895188888957') {
-          responseEmbed.setFooter({ text: '⚠️ 안내: 현재 공용 OCR 키를 사용 중입니다. 요청 한도 초과를 방지하려면 .env에 OCR_SPACE_KEY를 설정하세요.' });
-        }
-
         responseEmbed.setDescription(descText);
         await interaction.editReply({ embeds: [responseEmbed] });
 
