@@ -300,11 +300,14 @@ async function parseBossTimesFromOCR(text) {
     if (nameIndex !== -1) {
       const afterText = cleanedText.substring(nameIndex + boss.name.length);
       
+      // Strip common prefixes like "남은시간", "남은", "시간", colons, hyphens, spaces, etc.
+      const timeText = afterText.replace(/^(?:남은시간|남은|시간|[:\-=\s]+)+/, '');
+      
       let remainingMinutes = null;
       let matchedText = '';
 
       // Pattern 1: HH:MM:SS or HH:MM
-      const colonMatch = afterText.match(/^(?:(\d{1,2}):(\d{2}):(\d{2})|(\d{1,2}):(\d{2}))/);
+      const colonMatch = timeText.match(/^(?:(\d{1,2}):(\d{2}):(\d{2})|(\d{1,2}):(\d{2}))/);
       if (colonMatch) {
         matchedText = colonMatch[0];
         if (colonMatch[1] !== undefined) {
@@ -324,7 +327,7 @@ async function parseBossTimesFromOCR(text) {
       } 
       // Pattern 2: Korean time strings like X시간 Y분 Z초
       else {
-        const krMatch = afterText.match(/^(?:(\d+)(?:시간|시))?(?:(\d+)분)?(?:(\d+)초)?/);
+        const krMatch = timeText.match(/^(?:(\d+)(?:시간|시))?(?:(\d+)분)?(?:(\d+)초)?/);
         if (krMatch && (krMatch[1] || krMatch[2] || krMatch[3])) {
           matchedText = krMatch[0];
           const hh = krMatch[1] ? parseInt(krMatch[1], 10) : 0;
