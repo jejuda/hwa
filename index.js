@@ -289,6 +289,64 @@ function parseRemainingTime(timeStr) {
   return null;
 }
 
+// Helper: Parse boss names and remaining times from OCR text
+async function parseBossTimesFromOCR(text) {
+  const bosses = await db.getBossList(); // Get all bosses from db
+  const cleanedText = text.replace(/\s+/g, ''); // Remove all spaces and newlines
+  const results = [];
+
+  for (const boss of bosses) {
+    const nameIndex = cleanedText.indexOf(boss.name);
+    if (nameIndex !== -1) {
+      const afterText = cleanedText.substring(nameIndex + boss.name.length);
+      
+      let remainingMinutes = null;
+      let matchedText = '';
+
+      // Pattern 1: HH:MM:SS or HH:MM
+      const colonMatch = afterText.match(/^(?:(\d{1,2}):(\d{2}):(\d{2})|(\d{1,2}):(\d{2}))/);
+      if (colonMatch) {
+        matchedText = colonMatch[0];
+        if (colonMatch[1] !== undefined) {
+          const hh = parseInt(colonMatch[1], 10);
+          const mm = parseInt(colonMatch[2], 10);
+          const ss = parseInt(colonMatch[3], 10);
+          remainingMinutes = hh * 60 + mm + ss / 60;
+        } else {
+          const hh = parseInt(colonMatch[4], 10);
+          const mm = parseInt(colonMatch[5], 10);
+          if (hh > 23) {
+            remainingMinutes = hh + mm / 60; // Treat as MM:SS
+          } else {
+            remainingMinutes = hh * 60 + mm; // Treat as HH:MM
+          }
+        }
+      } 
+      // Pattern 2: Korean time strings like X시간 Y분 Z초
+      else {
+        const krMatch = afterText.match(/^(?:(\d+)(?:시간|시))?(?:(\d+)분)?(?:(\d+)초)?/);
+        if (krMatch && (krMatch[1] || krMatch[2] || krMatch[3])) {
+          matchedText = krMatch[0];
+          const hh = krMatch[1] ? parseInt(krMatch[1], 10) : 0;
+          const mm = krMatch[2] ? parseInt(krMatch[2], 10) : 0;
+          const ss = krMatch[3] ? parseInt(krMatch[3], 10) : 0;
+          remainingMinutes = hh * 60 + mm + ss / 60;
+        }
+      }
+
+      if (remainingMinutes !== null && remainingMinutes >= 0) {
+        results.push({
+          boss,
+          remainingMinutes,
+          matchedText
+        });
+      }
+    }
+  }
+
+  return results;
+}
+
 // Helper: Format Dates to localized string (오늘/내일/어제 HH:MM:SS)
 function formatDateTime(dateVal) {
   if (!dateVal) return '기록 없음';
@@ -881,6 +939,82 @@ client.on('interactionCreate', async interaction => {
       await db.setSetting('voice_guild', null);
 
       await interaction.reply('✅ 음성 채널 설정이 해제되었으며 봇이 퇴장했습니다.');
+    }
+
+    // 12. ANALYZE SCREENSHOT (OCR)
+    else if (commandName === '분석') {
+      await interaction.deferReply();
+      const attachment = interaction.options.getAttachment('이미지');
+
+      if (!attachment.contentType || !attachment.contentType.startsWith('image/')) {
+        return interaction.editReply('❌ 이미지 파일만 업로드할 수 있습니다.');
+      }
+
+      const apiKey = process.env.OCR_SPACE_KEY || 'K87895188888957';
+
+      try {
+        const formData = new FormData();
+        formData.append('apikey', apiKey);
+        formData.append('language', 'kor');
+        formData.append('url', attachment.url);
+        formData.append('isOverlayRequired', 'false');
+
+        const ocrRes = await fetch('https://api.ocr.space/parse/image', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!ocrRes.ok) {
+          throw new Error(`HTTP error! status: ${ocrRes.status}`);
+        }
+
+        const ocrData = await ocrRes.json();
+
+        if (ocrData.IsErroredOnProcessing || !ocrData.ParsedResults || ocrData.ParsedResults.length === 0) {
+          const errMsg = ocrData.ErrorMessage ? ocrData.ErrorMessage.join(', ') : '이미지 처리 실패';
+          return interaction.editReply(`❌ 이미지 분석 중 오류가 발생했습니다: ${errMsg}`);
+        }
+
+        const parsedText = ocrData.ParsedResults[0].ParsedText || '';
+        const parsedBosses = await parseBossTimesFromOCR(parsedText);
+
+        if (parsedBosses.length === 0) {
+          return interaction.editReply('❌ 이미지에서 등록된 보스의 이름과 남은 시간을 찾지 못했습니다.');
+        }
+
+        const responseEmbed = new EmbedBuilder()
+          .setTitle('📸 스크린샷 시간 분석 완료')
+          .setColor(0x00FF00)
+          .setTimestamp();
+
+        let descText = '';
+
+        for (const item of parsedBosses) {
+          const { boss, remainingMinutes, matchedText } = item;
+          const nextSpawnTime = new Date(getCurrentTime().getTime() + remainingMinutes * 60 * 1000);
+          const estimatedKillTime = new Date(nextSpawnTime.getTime() - boss.cooldown * 60 * 1000);
+
+          await db.recordKill(boss.name, estimatedKillTime, nextSpawnTime);
+
+          descText += `**⚔️ ${boss.name}** (${matchedText} 감지)\n` +
+                      `└ 처치 시각 (추정): \`${formatDateTime(estimatedKillTime)}\`\n` +
+                      `└ 다음 젠 예정: \`${formatDateTime(nextSpawnTime)}\`\n` +
+                      `└ 남은 시간: \`${formatRemainingTime(nextSpawnTime)}\`\n\n`;
+        }
+
+        lastCacheFetch = 0; // Invalidate cache immediately
+
+        if (apiKey === 'K87895188888957') {
+          responseEmbed.setFooter({ text: '⚠️ 안내: 현재 공용 OCR 키를 사용 중입니다. 요청 한도 초과를 방지하려면 .env에 OCR_SPACE_KEY를 설정하세요.' });
+        }
+
+        responseEmbed.setDescription(descText);
+        await interaction.editReply({ embeds: [responseEmbed] });
+
+      } catch (err) {
+        console.error('OCR analyze error:', err);
+        await interaction.editReply(`❌ 분석 중 오류가 발생했습니다: ${err.message}`);
+      }
     }
   } catch (error) {
     console.error('Error handling slash command:', error);

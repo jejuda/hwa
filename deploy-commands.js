@@ -133,7 +133,17 @@ const commands = [
   // /음성채널해제
   new SlashCommandBuilder()
     .setName('음성채널해제')
-    .setDescription('음성 채널 설정을 해제하고 봇을 퇴장시킵니다.')
+    .setDescription('음성 채널 설정을 해제하고 봇을 퇴장시킵니다.'),
+
+  // /분석
+  new SlashCommandBuilder()
+    .setName('분석')
+    .setDescription('보스 남은 시간 스크린샷 이미지를 분석하여 자동으로 시간을 입력합니다.')
+    .addAttachmentOption(option =>
+      option.setName('이미지')
+        .setDescription('분석할 보스 타이머 스크린샷 이미지')
+        .setRequired(true)
+    )
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
