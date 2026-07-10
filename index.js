@@ -296,9 +296,28 @@ async function parseBossTimesFromOCR(text) {
   const results = [];
 
   for (const boss of bosses) {
-    const nameIndex = cleanedText.indexOf(boss.name);
+    // Handle common OCR misreadings for boss names
+    let searchName = boss.name;
+    if (boss.name === '악시오스') {
+      // OCR space free engine sometimes misreads '악' as '약' or '안' as '아'
+      searchName = /(?:악시오스|약시오스)/;
+    }
+
+    let nameIndex = -1;
+    let matchLength = boss.name.length;
+
+    if (searchName instanceof RegExp) {
+      const match = cleanedText.match(searchName);
+      if (match) {
+        nameIndex = match.index;
+        matchLength = match[0].length;
+      }
+    } else {
+      nameIndex = cleanedText.indexOf(searchName);
+    }
+
     if (nameIndex !== -1) {
-      const afterText = cleanedText.substring(nameIndex + boss.name.length);
+      const afterText = cleanedText.substring(nameIndex + matchLength);
       
       // Strip common prefixes like "남은시간", "남은", "시간", colons, hyphens, spaces, and distance labels (e.g. 2,069m)
       const timeText = afterText.replace(/^(?:남은시간|남은|시간|[:\-=\s]|\d+(?:,\d+)*m)+/i, '');
