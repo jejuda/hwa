@@ -300,8 +300,8 @@ async function parseBossTimesFromOCR(text) {
     if (nameIndex !== -1) {
       const afterText = cleanedText.substring(nameIndex + boss.name.length);
       
-      // Strip common prefixes like "남은시간", "남은", "시간", colons, hyphens, spaces, etc.
-      const timeText = afterText.replace(/^(?:남은시간|남은|시간|[:\-=\s]+)+/, '');
+      // Strip common prefixes like "남은시간", "남은", "시간", colons, hyphens, spaces, and distance labels (e.g. 2,069m)
+      const timeText = afterText.replace(/^(?:남은시간|남은|시간|[:\-=\s]|\d+(?:,\d+)*m)+/i, '');
       
       let remainingMinutes = null;
       let matchedText = '';
