@@ -979,6 +979,9 @@ client.on('interactionCreate', async interaction => {
         }
 
         const parsedText = ocrData.ParsedResults[0].ParsedText || '';
+        console.log('--- OCR RAW TEXT START ---');
+        console.log(parsedText);
+        console.log('--- OCR RAW TEXT END ---');
         const parsedBosses = await parseBossTimesFromOCR(parsedText);
 
         if (parsedBosses.length === 0) {
