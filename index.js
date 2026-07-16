@@ -289,6 +289,24 @@ function parseRemainingTime(timeStr) {
   return null;
 }
 
+// Helper: Get typo-tolerant regex for default bosses
+function getBossRegex(name) {
+  switch (name) {
+    case '노블루드': return /노[블불]루드?/i;
+    case '악시오스': return /[악약안아액]시오스/i;
+    case '바르시엔': return /바르시[엔연온]/i;
+    case '구루타': return /구[루로]타/i;
+    case '카루카': return /카[루로]카/i;
+    case '비슈베다': return /비[슈수][베배]다?/i;
+    case '쉬라크': return /[쉬휘]라[크그]/i;
+    case '타르탄': return /타르[탄틴]/i;
+    case '카샤파': return /카[샤사]파/i;
+    case '라그타': return /라그타?/i;
+    case '가르투아': return /가[르루]투아?/i;
+    default: return new RegExp(name, 'i');
+  }
+}
+
 // Helper: Parse boss names and remaining times from OCR text
 async function parseBossTimesFromOCR(text) {
   const bosses = await db.getBossList(); // Get all bosses from db
@@ -296,24 +314,14 @@ async function parseBossTimesFromOCR(text) {
   const results = [];
 
   for (const boss of bosses) {
-    // Handle common OCR misreadings for boss names
-    let searchName = boss.name;
-    if (boss.name === '악시오스') {
-      // OCR space free engine sometimes misreads '악' as '약' or '안' as '아'
-      searchName = /(?:악시오스|약시오스)/;
-    }
-
+    const searchName = getBossRegex(boss.name);
     let nameIndex = -1;
     let matchLength = boss.name.length;
 
-    if (searchName instanceof RegExp) {
-      const match = cleanedText.match(searchName);
-      if (match) {
-        nameIndex = match.index;
-        matchLength = match[0].length;
-      }
-    } else {
-      nameIndex = cleanedText.indexOf(searchName);
+    const match = cleanedText.match(searchName);
+    if (match) {
+      nameIndex = match.index;
+      matchLength = match[0].length;
     }
 
     if (nameIndex !== -1) {
