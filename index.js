@@ -336,7 +336,8 @@ async function parseBossTimesFromOCR(text) {
         // 1. Strip common words/chars: 남은시간, 남은, 시간, colons, spaces, equals, hyphens, and OCR noise characters (like v, V, checkmarks, circles)
         timeText = timeText.replace(/^(?:남은시간|남은|시간|[:\-=\s]|[a-zA-Z✓✔✗✘\(\)\[\]_~.]+)+/i, '');
         // 2. Strip distance patterns (e.g. 3,051m, 3051m, 3,051, 3051) ONLY if not followed by time units (시, 시간, 분, 초, 남음)
-        timeText = timeText.replace(/^\d+(?:,\d+)*(?:m|rn|in|i)?(?!시|시간|분|초|남음)/i, '');
+        // We add (?!\d) to prevent backtracking to a single digit (which would convert 40분 to 0분 by stripping 4).
+        timeText = timeText.replace(/^\d+(?:,\d+)*(?!\d)(?:m|rn|in|i)?(?!시|시간|분|초|남음)/i, '');
       }
       
       let remainingMinutes = null;
