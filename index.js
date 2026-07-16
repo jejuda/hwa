@@ -319,8 +319,17 @@ async function parseBossTimesFromOCR(text) {
     if (nameIndex !== -1) {
       const afterText = cleanedText.substring(nameIndex + matchLength);
       
-      // Strip common prefixes like "남은시간", "남은", "시간", colons, hyphens, spaces, and distance labels (e.g. 2,069m)
-      const timeText = afterText.replace(/^(?:남은시간|남은|시간|[:\-=\s]|\d+(?:,\d+)*m)+/i, '');
+      let timeText = afterText;
+      let prevText = '';
+      
+      // Iterative loop to cleanly strip arbitrary prefixes/distances without lookahead collisions
+      while (timeText !== prevText) {
+        prevText = timeText;
+        // 1. Strip common words/chars: 남은시간, 남은, 시간, colons, spaces, equals, hyphens
+        timeText = timeText.replace(/^(?:남은시간|남은|시간|[:\-=\s]+)+/i, '');
+        // 2. Strip distance patterns (e.g. 3,051m, 3051m, 3,051, 3051) ONLY if not followed by time units (시, 시간, 분, 초, 남음)
+        timeText = timeText.replace(/^\d+(?:,\d+)*(?:m|rn|in|i)?(?!시|시간|분|초|남음)/i, '');
+      }
       
       let remainingMinutes = null;
       let matchedText = '';
