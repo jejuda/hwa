@@ -301,7 +301,7 @@ function getBossRegex(name) {
     case '쉬라크': return /[쉬휘]라[크그]/i;
     case '타르탄': return /타르[탄틴]/i;
     case '카샤파': return /카[샤사]파/i;
-    case '라그타': return /라그타?/i;
+    case '라그타': return /라그[타태터토]?/i;
     case '가르투아': return /가[르루]투아?/i;
     default: return new RegExp(name, 'i');
   }
@@ -333,8 +333,8 @@ async function parseBossTimesFromOCR(text) {
       // Iterative loop to cleanly strip arbitrary prefixes/distances without lookahead collisions
       while (timeText !== prevText) {
         prevText = timeText;
-        // 1. Strip common words/chars: 남은시간, 남은, 시간, colons, spaces, equals, hyphens
-        timeText = timeText.replace(/^(?:남은시간|남은|시간|[:\-=\s]+)+/i, '');
+        // 1. Strip common words/chars: 남은시간, 남은, 시간, colons, spaces, equals, hyphens, and OCR noise characters (like v, V, checkmarks, circles)
+        timeText = timeText.replace(/^(?:남은시간|남은|시간|[:\-=\s]|[a-zA-Z✓✔✗✘\(\)\[\]_~.]+)+/i, '');
         // 2. Strip distance patterns (e.g. 3,051m, 3051m, 3,051, 3051) ONLY if not followed by time units (시, 시간, 분, 초, 남음)
         timeText = timeText.replace(/^\d+(?:,\d+)*(?:m|rn|in|i)?(?!시|시간|분|초|남음)/i, '');
       }
