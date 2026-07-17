@@ -299,7 +299,7 @@ function getBossRegex(name) {
     case '카루카': return /카[루로]카/i;
     case '비슈베다': return /비[슈수][베배]다?/i;
     case '쉬라크': return /[쉬휘]라[크그]/i;
-    case '타르탄': return /타르[탄틴]/i;
+    case '타르탄': return /[타따티]르[탄틴단탈]?/i;
     case '카샤파': return /카[샤사]파/i;
     case '라그타': return /라그[타태터토]?/i;
     case '가르투아': return /가[르루]투아?/i;
@@ -339,6 +339,9 @@ async function parseBossTimesFromOCR(text) {
         // We add (?!\d) to prevent backtracking to a single digit (which would convert 40분 to 0분 by stripping 4).
         timeText = timeText.replace(/^\d+(?:,\d+)*(?!\d)(?:m|rn|in|i)?(?!시|시간|분|초|남음)/i, '');
       }
+
+      // OCR correction: '기분' is often a misreading of '21분' (2 looks like 기, 1 looks like ㅣ)
+      timeText = timeText.replace(/기분/g, '21분');
       
       let remainingMinutes = null;
       let matchedText = '';
