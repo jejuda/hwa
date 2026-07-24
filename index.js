@@ -809,7 +809,25 @@ client.on('interactionCreate', async interaction => {
         namesList.push(boss.name);
       });
 
-      description += `**✍️ 복사용 한줄 요약**\n\`${namesList.join(', ')}\``;
+      let summaryText = namesList.join(', ');
+      const nextBoss = sortedList.find(b => b.next_spawn && new Date(b.next_spawn) > getCurrentTime());
+      if (nextBoss) {
+        const diffMs = new Date(nextBoss.next_spawn) - getCurrentTime();
+        const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+        let timeStr = '';
+        if (diffSec < 60) {
+          timeStr = `${diffSec}초`;
+        } else if (diffSec < 3600) {
+          timeStr = `${Math.floor(diffSec / 60)}분 ${diffSec % 60}초 (${diffSec}초)`;
+        } else {
+          timeStr = `${Math.floor(diffSec / 3600)}시간 ${Math.floor((diffSec % 3600) / 60)}분 ${diffSec % 60}초 (${diffSec}초)`;
+        }
+        summaryText += ` (다음: ${nextBoss.name} ${timeStr} 뒤)`;
+      } else {
+        summaryText += ` (다음 보스 없음)`;
+      }
+
+      description += `**✍️ 복사용 한줄 요약**\n\`${summaryText}\``;
 
       embed.setDescription(description);
       await interaction.reply({ embeds: [embed] });
