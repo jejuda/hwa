@@ -292,14 +292,14 @@ function parseRemainingTime(timeStr) {
 // Helper: Get typo-tolerant regex for default bosses
 function getBossRegex(name) {
   switch (name) {
-    case '노블루드': return /노[블불]루드?/i;
-    case '악시오스': return /[악약안아액]시오스/i;
+    case '노블루드': return /노[블불믈]루드?/i;
+    case '악시오스': return /[악약안아액]시[오으]스/i;
     case '바르시엔': return /바르시[엔연온]/i;
     case '구루타': return /구[루로]타/i;
-    case '카루카': return /카[루로]카/i;
+    case '카루카': return /[카가][루로][카가]/i;
     case '비슈베다': return /비[슈수][베배]다?/i;
     case '쉬라크': return /[쉬휘]라[크그]/i;
-    case '타르탄': return /[타따티]르[탄틴단탈]?/i;
+    case '타르탄': return /[타따티]르[탄틴단탈만]?/i;
     case '카샤파': return /카[샤사]파/i;
     case '라그타': return /라그[타태터토]?/i;
     case '가르투아': return /가[르루]투아?/i;
@@ -310,7 +310,14 @@ function getBossRegex(name) {
 // Helper: Parse boss names and remaining times from OCR text
 async function parseBossTimesFromOCR(text) {
   const bosses = await db.getBossList(); // Get all bosses from db
-  const cleanedText = text.replace(/\s+/g, ''); // Remove all spaces and newlines
+  
+  // Normalize OCR time unit misreadings globally before space stripping to keep formatting intact
+  let normalizedText = text
+    .replace(/(?:Al간|`l간|1간)/gi, '시간')
+    .replace(/문/gi, '분')
+    .replace(/\*/g, '초');
+
+  const cleanedText = normalizedText.replace(/\s+/g, ''); // Remove all spaces and newlines
   const results = [];
 
   for (const boss of bosses) {
