@@ -776,7 +776,6 @@ client.on('interactionCreate', async interaction => {
         .setTimestamp();
 
       let description = '';
-      const namesList = [];
       sortedList.forEach((boss, index) => {
         const nextSpawnStr = formatDateTime(boss.next_spawn);
         const remainingStr = formatRemainingTime(boss.next_spawn);
@@ -798,33 +797,52 @@ client.on('interactionCreate', async interaction => {
           }
         }
 
+        let gapText = '';
+        if (boss.next_spawn && index < sortedList.length - 1) {
+          const nextBoss = sortedList[index + 1];
+          if (nextBoss && nextBoss.next_spawn) {
+            const gapMs = new Date(nextBoss.next_spawn) - new Date(boss.next_spawn);
+            const gapSec = Math.max(0, Math.floor(gapMs / 1000));
+            gapText = ` | 다음보스까지: \`+${gapSec}초\``;
+          }
+        }
+
         description += `**${index + 1}. ${emoji} ${boss.name}**\n`;
         if (boss.next_spawn) {
-          description += `└ 상태: ${statusText} | 예정: \`${nextSpawnStr}\`\n`;
+          description += `└ 상태: ${statusText} | 예정: \`${nextSpawnStr}\`${gapText}\n`;
         } else {
           description += `└ 상태: \`${statusText}\`\n`;
         }
         description += '\n';
-
-        namesList.push(boss.name);
       });
 
-      let summaryText = namesList.join(', ');
-      const nextBoss = sortedList.find(b => b.next_spawn && new Date(b.next_spawn) > getCurrentTime());
-      if (nextBoss) {
-        const diffMs = new Date(nextBoss.next_spawn) - getCurrentTime();
-        const diffSec = Math.max(0, Math.floor(diffMs / 1000));
-        let timeStr = '';
-        if (diffSec < 60) {
-          timeStr = `${diffSec}초`;
-        } else if (diffSec < 3600) {
-          timeStr = `${Math.floor(diffSec / 60)}분 ${diffSec % 60}초 (${diffSec}초)`;
-        } else {
-          timeStr = `${Math.floor(diffSec / 3600)}시간 ${Math.floor((diffSec % 3600) / 60)}분 ${diffSec % 60}초 (${diffSec}초)`;
+      // Build sequential gap summary (e.g. 보스A (+120초) ➡️ 보스B)
+      const activeBosses = sortedList.filter(b => b.next_spawn);
+      let summaryText = '';
+      if (activeBosses.length > 0) {
+        const parts = [];
+        for (let i = 0; i < activeBosses.length; i++) {
+          const current = activeBosses[i];
+          if (i < activeBosses.length - 1) {
+            const next = activeBosses[i + 1];
+            const gapMs = new Date(next.next_spawn) - new Date(current.next_spawn);
+            const gapSec = Math.max(0, Math.floor(gapMs / 1000));
+            parts.push(`${current.name} (+${gapSec}초)`);
+          } else {
+            parts.push(current.name);
+          }
         }
-        summaryText += ` (다음: ${nextBoss.name} ${timeStr} 뒤)`;
-      } else {
-        summaryText += ` (다음 보스 없음)`;
+        summaryText = parts.join(' ➡️ ');
+      }
+      
+      const inactiveBosses = sortedList.filter(b => !b.next_spawn);
+      if (inactiveBosses.length > 0) {
+        const inactiveNames = inactiveBosses.map(b => b.name).join(', ');
+        if (summaryText) {
+          summaryText += ` | (미등록: ${inactiveNames})`;
+        } else {
+          summaryText = `미등록: ${inactiveNames}`;
+        }
       }
 
       description += `**✍️ 복사용 한줄 요약**\n\`${summaryText}\``;
