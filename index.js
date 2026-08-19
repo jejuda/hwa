@@ -321,7 +321,8 @@ function getBossRegex(name) {
 
 // Helper: Parse boss names and remaining times from OCR text
 async function parseBossTimesFromOCR(text) {
-  const bosses = await db.getBossList(); // Get all bosses from db
+  const default11 = ['노블루드', '악시오스', '바르시엔', '구루타', '카루카', '비슈베다', '쉬라크', '타르탄', '카샤파', '라그타', '가르투아'];
+  const bosses = (await db.getBossList()).filter(b => default11.includes(b.name));
   
   // Normalize OCR time unit misreadings globally before space stripping to keep formatting intact
   let normalizedText = text
