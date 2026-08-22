@@ -812,8 +812,8 @@ async function checkUpcomingSpawns() {
         await db.markNotified(record.name, '5');
         await triggerVoiceTTS(record.name);
       }
-      // Spawn alert (20 seconds remaining >= remaining > -10m)
-      else if (diffMs <= 20000 && diffMs > -600000 && record.notified_0 === 0) {
+      // Spawn alert (10 seconds remaining >= remaining > -10m)
+      else if (diffMs <= 10000 && diffMs > -600000 && record.notified_0 === 0) {
         // Prevent double-trigger in memory immediately
         record.notified_0 = 1;
 
