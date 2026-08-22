@@ -9,7 +9,9 @@ export const DEFAULT_11_BOSSES = [
   '타르탄',
   '카샤파',
   '라그타',
-  '가르투아'
+  '가르투아',
+  '사르바카',
+  '미나사라'
 ];
 
 export const BOSS_CHOICES = [
@@ -23,7 +25,9 @@ export const BOSS_CHOICES = [
   { name: '타르탄 (6시간)', value: '타르탄' },
   { name: '카샤파 (6시간)', value: '카샤파' },
   { name: '라그타 (12시간)', value: '라그타' },
-  { name: '가르투아 (12시간)', value: '가르투아' }
+  { name: '가르투아 (12시간)', value: '가르투아' },
+  { name: '사르바카 (12시간)', value: '사르바카' },
+  { name: '미나사라 (12시간)', value: '미나사라' }
 ];
 
 export const NOTMETER_BOSS_MAP = {
@@ -37,7 +41,9 @@ export const NOTMETER_BOSS_MAP = {
   2400800: '가르투아',
   2400853: '라그타',
   2400854: '카샤파',
-  2400855: '타르탄'
+  2400855: '타르탄',
+  2406990: '미나사라',
+  2406991: '사르바카'
 };
 
 export const NOTMETER_ENDPOINTS = [

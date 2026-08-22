@@ -27,6 +27,8 @@ export function getBossRegex(name) {
     case '란나르': return /란나르?/i;
     case '가르산': return /가르[산삼상사]/i;
     case '누타': return /누타/i;
+    case '사르바카': return /사[르루]바[카가]/i;
+    case '미나사라': return /미나[사샤]라/i;
     default: return new RegExp(name, 'i');
   }
 }

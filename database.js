@@ -74,7 +74,7 @@ export async function initDB() {
     )
   `);
 
-  // Insert default 11 bosses if they do not exist, and enforce correct cooldowns
+  // Insert default 13 bosses if they do not exist, and enforce correct cooldowns
   const defaultBosses = [
     { name: '노블루드', cooldown: 240, memo: '필드 보스' },
     { name: '악시오스', cooldown: 240, memo: '필드 보스' },
@@ -86,7 +86,9 @@ export async function initDB() {
     { name: '타르탄', cooldown: 360, memo: '필드 보스' },
     { name: '카샤파', cooldown: 360, memo: '필드 보스' },
     { name: '라그타', cooldown: 720, memo: '필드 보스' },
-    { name: '가르투아', cooldown: 720, memo: '필드 보스' }
+    { name: '가르투아', cooldown: 720, memo: '필드 보스' },
+    { name: '사르바카', cooldown: 720, memo: '모르헤임' },
+    { name: '미나사라', cooldown: 720, memo: '모르헤임' }
   ];
 
   for (const boss of defaultBosses) {
@@ -96,10 +98,10 @@ export async function initDB() {
     await run('INSERT OR IGNORE INTO records (boss_name) VALUES (?)', [boss.name]);
   }
 
-  // Delete any other bosses to restrict the bot only to these 11 field bosses
+  // Delete any other bosses to restrict the bot only to these 13 field bosses
   await run(`
     DELETE FROM bosses 
-    WHERE name NOT IN ('노블루드', '악시오스', '바르시엔', '구루타', '카루카', '비슈베다', '쉬라크', '타르탄', '카샤파', '라그타', '가르투아')
+    WHERE name NOT IN ('노블루드', '악시오스', '바르시엔', '구루타', '카루카', '비슈베다', '쉬라크', '타르탄', '카샤파', '라그타', '가르투아', '사르바카', '미나사라')
   `);
 }
 
