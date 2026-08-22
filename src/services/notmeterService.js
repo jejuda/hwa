@@ -52,8 +52,8 @@ export async function syncNotMeterData(options = {}) {
     throw new Error(lastError ? lastError.message : 'NotMeter 데이터를 불러올 수 없습니다.');
   }
 
-  // Find Israphel server (serverId: 1001)
-  const israphel = jsonData.servers.find(s => Number(s.serverId) === 1001);
+  // Find Israphel Asmodian server (serverId: 2001 for Altgard / Asmodians)
+  const israphel = jsonData.servers.find(s => Number(s.serverId) === 2001);
   if (!israphel || !israphel.regions) {
     return { updated: [], totalChecked: 0, serverFound: false, notModified: isNotModified };
   }
