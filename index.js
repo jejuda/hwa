@@ -97,6 +97,32 @@ client.once('clientReady', async () => {
 
   // Start background monitoring scheduler (runs every 1 second for 1-second precision)
   setInterval(checkUpcomingSpawns, 1000);
+
+  // Start NotMeter Auto-Sync Poller (runs every 60 seconds)
+  setInterval(async () => {
+    try {
+      const autoSyncSetting = await db.getSetting('auto_sync_notmeter');
+      if (autoSyncSetting !== 'off') {
+        await syncNotMeterData();
+      }
+    } catch (err) {
+      // Silently handle periodic network fetch errors
+    }
+  }, 60 * 1000);
+
+  // Initial sync on startup
+  (async () => {
+    try {
+      const autoSyncSetting = await db.getSetting('auto_sync_notmeter');
+      if (autoSyncSetting !== 'off') {
+        console.log('🔄 Initializing NotMeter auto-sync on startup...');
+        const res = await syncNotMeterData();
+        console.log(`✅ NotMeter initial auto-sync completed (${res.updated.length} bosses updated).`);
+      }
+    } catch (err) {
+      console.warn('⚠️ NotMeter initial sync warning:', err.message);
+    }
+  })();
 });
 
 // Helper: Parse time inputs like "14:30:15", "1430", "10분전", "10"
@@ -287,6 +313,101 @@ function parseRemainingTime(timeStr) {
   }
   
   return null;
+}
+
+// --- NotMeter.com Real-time Synchronization Module ---
+const NOTMETER_BOSS_MAP = {
+  2400424: '노블루드',
+  2400425: '악시오스',
+  2400504: '바르시엔',
+  2400593: '구루타',
+  2400608: '카루카',
+  2400659: '비슈베다',
+  2400709: '쉬라크',
+  2400800: '가르투아',
+  2400853: '라그타',
+  2400854: '카샤파',
+  2400855: '타르탄'
+};
+
+const NOTMETER_ENDPOINTS = [
+  'https://notmeter.112-168-140-142.sslip.io/field-boss/v1/public',
+  'https://raw.githubusercontent.com/Not4You-Dev/NotMeter-Update/main/presence/notmeter-field-boss-public.json',
+  'https://cdn.jsdelivr.net/gh/Not4You-Dev/NotMeter-Update@main/presence/notmeter-field-boss-public.json'
+];
+
+async function syncNotMeterData(options = {}) {
+  let jsonData = null;
+  let lastError = null;
+
+  for (const url of NOTMETER_ENDPOINTS) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (res.ok) {
+        jsonData = await res.json();
+        if (jsonData && jsonData.servers) break;
+      }
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  if (!jsonData || !jsonData.servers) {
+    throw new Error(lastError ? lastError.message : 'NotMeter 데이터를 불러올 수 없습니다.');
+  }
+
+  // Find Israphel server (serverId: 1001)
+  const israphel = jsonData.servers.find(s => Number(s.serverId) === 1001);
+  if (!israphel || !israphel.regions) {
+    return { updated: [], totalChecked: 0, serverFound: false };
+  }
+
+  const updatedBosses = [];
+  const bossList = await db.getBossList();
+  const bossMapByName = new Map(bossList.map(b => [b.name, b]));
+
+  for (const region of israphel.regions) {
+    if (!region.entries) continue;
+    for (const entry of region.entries) {
+      const bossName = NOTMETER_BOSS_MAP[entry.bossCode];
+      if (!bossName) continue;
+
+      const bossInfo = bossMapByName.get(bossName);
+      if (!bossInfo) continue;
+
+      const targetMs = Number(entry.targetAt);
+      if (!targetMs || isNaN(targetMs)) continue;
+
+      const newSpawnTime = new Date(targetMs);
+      const currentNextSpawn = bossInfo.next_spawn ? new Date(bossInfo.next_spawn) : null;
+
+      // Update if time difference is greater than 10 seconds or new entry or forced
+      const isDifferent = !currentNextSpawn || Math.abs(currentNextSpawn.getTime() - newSpawnTime.getTime()) > 10000;
+
+      if (isDifferent || options.force) {
+        const estimatedKillTime = new Date(newSpawnTime.getTime() - (bossInfo.cooldown || 240) * 60 * 1000);
+        await db.recordKill(bossName, estimatedKillTime, newSpawnTime);
+        updatedBosses.push({
+          name: bossName,
+          previousSpawn: currentNextSpawn,
+          nextSpawn: newSpawnTime,
+          targetAt: targetMs
+        });
+      }
+    }
+  }
+
+  if (updatedBosses.length > 0) {
+    lastCacheFetch = 0; // Invalidate cache immediately for TTS & timers
+  }
+
+  await db.setSetting('last_notmeter_sync', new Date().toISOString());
+
+  return {
+    updated: updatedBosses,
+    totalChecked: Object.keys(NOTMETER_BOSS_MAP).length,
+    serverFound: true
+  };
 }
 
 // Helper: Get typo-tolerant regex for default bosses
@@ -1159,6 +1280,83 @@ client.on('interactionCreate', async interaction => {
       } catch (err) {
         console.error('OCR analyze error:', err);
         await interaction.editReply(`❌ 분석 중 오류가 발생했습니다: ${err.message}`);
+      }
+    }
+
+    // 12. NOTMETER AUTO SYNC (/자동동기화)
+    else if (commandName === '자동동기화') {
+      const action = interaction.options.getString('동작');
+
+      if (action === 'on') {
+        await db.setSetting('auto_sync_notmeter', 'on');
+        await interaction.deferReply();
+        try {
+          const res = await syncNotMeterData({ force: true, manual: true });
+          const embed = new EmbedBuilder()
+            .setTitle('🟢 NotMeter 실시간 자동 동기화 활성화')
+            .setColor(0x00FF87)
+            .setDescription(`**이스라펠 / 알트가르드 11종 보스**의 실시간 데이터 연동이 **켜졌습니다.**\n` +
+                            `└ **1분 주기**로 최신 젠 시간이 자동 갱신됩니다.\n` +
+                            `└ 즉시 동기화 결과: **${res.updated.length}개** 보스 시간 갱신 완료`)
+            .setFooter({ text: 'notmeter.com 실시간 연동' })
+            .setTimestamp();
+          await interaction.editReply({ embeds: [embed] });
+        } catch (err) {
+          await interaction.editReply(`🟢 자동 동기화가 활성화되었으나 즉시 갱신 중 오류가 발생했습니다: ${err.message}`);
+        }
+      } 
+      else if (action === 'off') {
+        await db.setSetting('auto_sync_notmeter', 'off');
+        const embed = new EmbedBuilder()
+          .setTitle('🔴 NotMeter 실시간 자동 동기화 비활성화')
+          .setColor(0xFF5555)
+          .setDescription(`자동 동기화가 **꺼졌습니다.**\n` +
+                          `└ 이제 사이트 데이터가 자동 반영되지 않으며, **수동 /컷 및 /젠 모드**로 동작합니다.`)
+          .setFooter({ text: 'notmeter.com 실시간 연동' })
+          .setTimestamp();
+        await interaction.reply({ embeds: [embed] });
+      }
+      else if (action === 'status') {
+        const autoSyncSetting = await db.getSetting('auto_sync_notmeter');
+        const isEnabled = autoSyncSetting !== 'off';
+        const lastSync = await db.getSetting('last_notmeter_sync');
+        const lastSyncStr = lastSync ? formatDateTime(lastSync) : '기록 없음';
+
+        const embed = new EmbedBuilder()
+          .setTitle('📊 NotMeter 자동 동기화 설정 상태')
+          .setColor(isEnabled ? 0x00FF87 : 0xFFA500)
+          .addFields(
+            { name: '연동 상태', value: isEnabled ? '🟢 **켜짐 (1분 주기 자동 갱신 중)**' : '🔴 **꺼짐 (수동 관리 모드)**', inline: true },
+            { name: '대상 서버 / 지역', value: '이스라펠 / 알트가르드 (11종 보스)', inline: true },
+            { name: '최근 동기화 시각', value: `\`${lastSyncStr}\``, inline: false }
+          )
+          .setFooter({ text: 'notmeter.com 실시간 연동' })
+          .setTimestamp();
+        await interaction.reply({ embeds: [embed] });
+      }
+      else if (action === 'sync_now') {
+        await interaction.deferReply();
+        try {
+          const res = await syncNotMeterData({ force: true, manual: true });
+          const embed = new EmbedBuilder()
+            .setTitle('🔄 NotMeter 실시간 데이터 즉시 동기화 완료')
+            .setColor(0x00FF87)
+            .setTimestamp();
+
+          if (res.updated.length === 0) {
+            embed.setDescription(`모든 보스가 이미 최신 시간과 일치하여 갱신할 항목이 없습니다.`);
+          } else {
+            let desc = `**총 ${res.updated.length}개 보스 갱신 완료:**\n\n`;
+            res.updated.forEach(u => {
+              desc += `**⚔️ ${u.name}**\n` +
+                      `└ 예정: \`${formatDateTime(u.nextSpawn)}\` (${formatRemainingTime(u.nextSpawn)})\n`;
+            });
+            embed.setDescription(desc);
+          }
+          await interaction.editReply({ embeds: [embed] });
+        } catch (err) {
+          await interaction.editReply(`❌ 즉시 동기화 실패: ${err.message}`);
+        }
       }
     }
   } catch (error) {

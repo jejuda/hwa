@@ -143,6 +143,22 @@ const commands = [
       option.setName('이미지')
         .setDescription('분석할 보스 타이머 스크린샷 이미지')
         .setRequired(true)
+    ),
+
+  // /자동동기화 [동작]
+  new SlashCommandBuilder()
+    .setName('자동동기화')
+    .setDescription('NotMeter(notmeter.com) 실시간 보스 시간 자동 동기화를 설정합니다.')
+    .addStringOption(option =>
+      option.setName('동작')
+        .setDescription('수행할 동작을 선택하세요.')
+        .setRequired(true)
+        .addChoices(
+          { name: '켜기 (1분 주기 자동 연동)', value: 'on' },
+          { name: '끄기 (수동 관리 모드)', value: 'off' },
+          { name: '상태확인 (현재 연동 상태 조회)', value: 'status' },
+          { name: '즉시동기화 (지금 바로 사이트 데이터 갱신)', value: 'sync_now' }
+        )
     )
 ].map(command => command.toJSON());
 
