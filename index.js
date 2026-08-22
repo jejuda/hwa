@@ -614,9 +614,15 @@ function formatRemainingTime(dateVal) {
 
   if (diffMs < 0) {
     const secsOver = Math.floor(Math.abs(diffMs) / 1000);
+    const minsOver = Math.floor(secsOver / 60);
     const hh = Math.floor(secsOver / 3600);
     const mm = Math.floor((secsOver % 3600) / 60);
     const ss = secsOver % 60;
+
+    // 30 minutes or more overdue -> 멍 (미출현/기록누락)
+    if (minsOver >= 30) {
+      return hh > 0 ? `멍 (${hh}시간 ${mm}분 초과)` : `멍 (${mm}분 초과)`;
+    }
 
     if (secsOver < 60) return `젠 중 (${ss}초 초과)`;
     return hh > 0 ? `젠 중 (${hh}시간 ${mm}분 초과)` : `젠 중 (${mm}분 ${ss}초 초과)`;
@@ -941,6 +947,8 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply('등록된 보스가 없습니다.');
       }
 
+      const now = getCurrentTime();
+
       const sortedList = [...list].sort((a, b) => {
         if (!a.next_spawn && !b.next_spawn) return a.name.localeCompare(b.name, 'ko');
         if (!a.next_spawn) return 1;
@@ -968,10 +976,18 @@ client.on('interactionCreate', async interaction => {
           emoji = '❔';
           statusText = '기록 없음';
         } else {
-          const isOver = new Date(boss.next_spawn) <= getCurrentTime();
+          const diffMs = new Date(boss.next_spawn) - now;
+          const isOver = diffMs <= 0;
+          const minsOver = Math.floor(Math.abs(diffMs) / 60000);
+
           if (isOver) {
-            emoji = '⚔️';
-            statusText = `**${remainingStr}**`;
+            if (minsOver >= 30) {
+              emoji = '💤';
+              statusText = `**${remainingStr}**`;
+            } else {
+              emoji = '⚔️';
+              statusText = `**${remainingStr}**`;
+            }
           } else {
             emoji = '⏰';
             statusText = `${remainingStr}`;
@@ -997,8 +1013,24 @@ client.on('interactionCreate', async interaction => {
         description += '\n';
       });
 
-      // Build sequential gap summary (e.g. 보스A (+120초) ➡️ 보스B)
-      const activeBosses = sortedList.filter(b => b.next_spawn);
+      // Split active (upcoming / spawning within 30m) vs stale (멍 >= 30m) vs inactive
+      const activeBosses = [];
+      const staleBosses = [];
+      const inactiveBosses = [];
+
+      for (const b of sortedList) {
+        if (!b.next_spawn) {
+          inactiveBosses.push(b);
+        } else {
+          const diffMs = new Date(b.next_spawn) - now;
+          if (diffMs < -30 * 60 * 1000) {
+            staleBosses.push(b);
+          } else {
+            activeBosses.push(b);
+          }
+        }
+      }
+
       let summaryText = '';
       if (activeBosses.length > 0) {
         const parts = [];
@@ -1016,7 +1048,15 @@ client.on('interactionCreate', async interaction => {
         summaryText = parts.join(' ➡️ ');
       }
       
-      const inactiveBosses = sortedList.filter(b => !b.next_spawn);
+      if (staleBosses.length > 0) {
+        const staleNames = staleBosses.map(b => b.name).join(', ');
+        if (summaryText) {
+          summaryText += ` | (💤 멍: ${staleNames})`;
+        } else {
+          summaryText = `💤 멍: ${staleNames}`;
+        }
+      }
+
       if (inactiveBosses.length > 0) {
         const inactiveNames = inactiveBosses.map(b => b.name).join(', ');
         if (summaryText) {
