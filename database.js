@@ -163,8 +163,9 @@ export async function recordKill(name, killTime, nextSpawnTime) {
   const prevNextSpawn = record ? record.next_spawn : null;
 
   const now = new Date();
-  const isPast = nextSpawnTime <= now;
-  const isPast5 = nextSpawnTime.getTime() - now.getTime() < 5 * 60 * 1000;
+  const diffMs = nextSpawnTime.getTime() - now.getTime();
+  const notified5 = diffMs <= 10000 ? 1 : 0;
+  const notified0 = diffMs <= 10000 ? 1 : 0;
 
   await run(`
     UPDATE records 
@@ -181,8 +182,8 @@ export async function recordKill(name, killTime, nextSpawnTime) {
     nextSpawnTime.toISOString(),
     prevLastKill,
     prevNextSpawn,
-    isPast5 ? 1 : 0,
-    isPast ? 1 : 0,
+    notified5,
+    notified0,
     name
   ]);
 }
@@ -195,8 +196,9 @@ export async function recordSpawn(name, nextSpawnTime) {
   const prevNextSpawn = record ? record.next_spawn : null;
 
   const now = new Date();
-  const isPast = nextSpawnTime <= now;
-  const isPast5 = nextSpawnTime.getTime() - now.getTime() < 5 * 60 * 1000;
+  const diffMs = nextSpawnTime.getTime() - now.getTime();
+  const notified5 = diffMs <= 10000 ? 1 : 0;
+  const notified0 = diffMs <= 10000 ? 1 : 0;
 
   await run(`
     UPDATE records 
@@ -212,8 +214,8 @@ export async function recordSpawn(name, nextSpawnTime) {
     nextSpawnTime.toISOString(),
     prevLastKill,
     prevNextSpawn,
-    isPast5 ? 1 : 0,
-    isPast ? 1 : 0,
+    notified5,
+    notified0,
     name
   ]);
 }
