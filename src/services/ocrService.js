@@ -29,6 +29,7 @@ export function getBossRegex(name) {
     case '누타': return /누타/i;
     case '사르바카': return /사[르루]바[카가]/i;
     case '미나사라': return /미나[사샤]라/i;
+    case '브란트': return /브란[트특]?/i;
     default: return new RegExp(name, 'i');
   }
 }
