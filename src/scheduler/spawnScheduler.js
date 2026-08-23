@@ -94,8 +94,8 @@ export async function checkUpcomingSpawns(client) {
         await db.markNotified(record.name, '5');
         await triggerVoiceTTS(client, record.name);
       }
-      // Spawn alert (10 seconds remaining >= remaining > -10m)
-      else if (diffMs <= 10000 && diffMs > -600000 && record.notified_0 === 0) {
+      // Spawn alert (10 seconds remaining >= remaining >= -5s)
+      else if (diffMs <= 10000 && diffMs >= -5000 && record.notified_0 === 0) {
         record.notified_0 = 1;
 
         const cutButton = new ButtonBuilder()

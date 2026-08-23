@@ -161,6 +161,10 @@ export async function recordKill(name, killTime, nextSpawnTime) {
   const prevLastKill = record ? record.last_kill : null;
   const prevNextSpawn = record ? record.next_spawn : null;
 
+  const now = new Date();
+  const isPast = nextSpawnTime <= now;
+  const isPast5 = nextSpawnTime.getTime() - now.getTime() < 5 * 60 * 1000;
+
   await run(`
     UPDATE records 
     SET last_kill = ?, 
@@ -168,10 +172,18 @@ export async function recordKill(name, killTime, nextSpawnTime) {
         prev_last_kill = ?, 
         prev_next_spawn = ?,
         notified_10 = 0, 
-        notified_5 = 0, 
-        notified_0 = 0
+        notified_5 = ?, 
+        notified_0 = ?
     WHERE boss_name = ?
-  `, [killTime.toISOString(), nextSpawnTime.toISOString(), prevLastKill, prevNextSpawn, name]);
+  `, [
+    killTime.toISOString(),
+    nextSpawnTime.toISOString(),
+    prevLastKill,
+    prevNextSpawn,
+    isPast5 ? 1 : 0,
+    isPast ? 1 : 0,
+    name
+  ]);
 }
 
 // Record explicit next spawn time
@@ -181,6 +193,10 @@ export async function recordSpawn(name, nextSpawnTime) {
   const prevLastKill = record ? record.last_kill : null;
   const prevNextSpawn = record ? record.next_spawn : null;
 
+  const now = new Date();
+  const isPast = nextSpawnTime <= now;
+  const isPast5 = nextSpawnTime.getTime() - now.getTime() < 5 * 60 * 1000;
+
   await run(`
     UPDATE records 
     SET last_kill = NULL, 
@@ -188,10 +204,17 @@ export async function recordSpawn(name, nextSpawnTime) {
         prev_last_kill = ?, 
         prev_next_spawn = ?,
         notified_10 = 0, 
-        notified_5 = 0, 
-        notified_0 = 0
+        notified_5 = ?, 
+        notified_0 = ?
     WHERE boss_name = ?
-  `, [nextSpawnTime.toISOString(), prevLastKill, prevNextSpawn, name]);
+  `, [
+    nextSpawnTime.toISOString(),
+    prevLastKill,
+    prevNextSpawn,
+    isPast5 ? 1 : 0,
+    isPast ? 1 : 0,
+    name
+  ]);
 }
 
 // Rollback last kill/spawn command
