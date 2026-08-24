@@ -162,6 +162,46 @@ const commands = [
           { name: '상태확인 (현재 연동 상태 조회)', value: 'status' },
           { name: '즉시동기화 (지금 바로 사이트 데이터 갱신)', value: 'sync_now' }
         )
+    ),
+
+  // /전광판 [동작] [채널]
+  new SlashCommandBuilder()
+    .setName('전광판')
+    .setDescription('실시간 20초 주기 자동 갱신 보스 젠 현황판(대시보드)을 관리합니다.')
+    .addStringOption(option =>
+      option.setName('동작')
+        .setDescription('수행할 동작을 선택하세요.')
+        .setRequired(true)
+        .addChoices(
+          { name: '생성 (현재 채널에 고정 전광판 생성)', value: 'create' },
+          { name: '새로고침 (전광판 즉시 업데이트)', value: 'refresh' },
+          { name: '삭제 (기존 전광판 제거)', value: 'delete' }
+        )
+    )
+    .addChannelOption(option =>
+      option.setName('채널')
+        .setDescription('전광판을 생성할 채널을 선택하세요. (미지정 시 현재 채널)')
+        .setRequired(false)
+    ),
+
+  // /대시보드 [동작] [채널] (전광판 별칭)
+  new SlashCommandBuilder()
+    .setName('대시보드')
+    .setDescription('실시간 20초 주기 자동 갱신 보스 젠 현황판(대시보드)을 관리합니다.')
+    .addStringOption(option =>
+      option.setName('동작')
+        .setDescription('수행할 동작을 선택하세요.')
+        .setRequired(true)
+        .addChoices(
+          { name: '생성 (현재 채널에 고정 전광판 생성)', value: 'create' },
+          { name: '새로고침 (전광판 즉시 업데이트)', value: 'refresh' },
+          { name: '삭제 (기존 전광판 제거)', value: 'delete' }
+        )
+    )
+    .addChannelOption(option =>
+      option.setName('채널')
+        .setDescription('전광판을 생성할 채널을 선택하세요. (미지정 시 현재 채널)')
+        .setRequired(false)
     )
 ].map(command => command.toJSON());
 

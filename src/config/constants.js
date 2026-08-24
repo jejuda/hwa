@@ -49,6 +49,23 @@ export const NOTMETER_BOSS_MAP = {
   2406132: '브란트'
 };
 
+export const BOSS_LOCATIONS = {
+  '노블루드': { region: '알트가르드', location: '(44) 바스펠트 폐허 절벽' },
+  '악시오스': { region: '알트가르드', location: '(44) 바스펠트 폐허 절벽' },
+  '바르시엔': { region: '알트가르드', location: '(44) 바스펠트 폐허 절벽' },
+  '카루카':   { region: '알트가르드', location: '(44) 바스펠트 폐허 절벽' },
+  '구루타':   { region: '알트가르드', location: '(33) 마히샤의 둥지' },
+  '쉬라크':   { region: '모르헤임',   location: '(13) 이탈시그 초소' },
+  '비슈베다': { region: '알트가르드', location: '(14) 수색꾼 야영지' },
+  '타르탄':   { region: '알트가르드', location: '(14) 수색꾼 야영지' },
+  '카샤파':   { region: '알트가르드', location: '(28) 검은발톱 주둔지' },
+  '가르투아': { region: '알트가르드', location: '(28) 검은발톱 주둔지' },
+  '라그타':   { region: '알트가르드', location: '(28) 검은발톱 주둔지' },
+  '사르바카': { region: '모르헤임',   location: '(19) 무스펠의 눈' },
+  '미나사라': { region: '모르헤임',   location: '(11) 얼어붙은 골짜기' },
+  '브란트':   { region: '모르헤임',   location: '(14) 수색꾼 야영지' }
+};
+
 export const NOTMETER_ENDPOINTS = [
   'https://notmeter.112-168-140-142.sslip.io/field-boss/v1/public',
   'https://raw.githubusercontent.com/Not4You-Dev/NotMeter-Update/main/presence/notmeter-field-boss-public.json',
