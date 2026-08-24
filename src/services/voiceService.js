@@ -9,21 +9,11 @@ import { Readable } from 'stream';
 import * as db from '../../database.js';
 
 let audioPlayer = null;
-const ttsQueue = [];
-let isPlayingTTS = false;
 
-async function processTTSQueue(client) {
-  if (isPlayingTTS || ttsQueue.length === 0) return;
-  isPlayingTTS = true;
-
-  const item = ttsQueue.shift();
+export async function playTTS(client, guildId, channelId, text) {
   try {
-    const { guildId, channelId, text } = item;
     const guild = client.guilds.cache.get(guildId);
-    if (!guild) {
-      isPlayingTTS = false;
-      return processTTSQueue(client);
-    }
+    if (!guild) return;
 
     let connection = getVoiceConnection(guildId);
     if (!connection) {
@@ -44,44 +34,19 @@ async function processTTSQueue(client) {
       voice: 'ko-KR-SunHiNeural'
     });
 
-    const chunks = [];
-    for await (const chunk of communicate.stream()) {
-      if (chunk.type === 'audio' && chunk.data) {
-        chunks.push(chunk.data);
+    const readable = Readable.from((async function* () {
+      for await (const chunk of communicate.stream()) {
+        if (chunk.type === 'audio' && chunk.data) {
+          yield chunk.data;
+        }
       }
-    }
+    })());
 
-    if (chunks.length > 0) {
-      const buffer = Buffer.concat(chunks);
-      const resource = createAudioResource(Readable.from(buffer));
-      audioPlayer.play(resource);
-
-      // Wait for audio player to finish playing or timeout after 10s
-      await new Promise((resolve) => {
-        const onStateChange = (oldState, newState) => {
-          if (newState.status === 'idle') {
-            audioPlayer.off('stateChange', onStateChange);
-            resolve();
-          }
-        };
-        audioPlayer.on('stateChange', onStateChange);
-        setTimeout(() => {
-          audioPlayer.off('stateChange', onStateChange);
-          resolve();
-        }, 10000);
-      });
-    }
+    const resource = createAudioResource(readable);
+    audioPlayer.play(resource);
   } catch (err) {
-    console.error('Error in TTS queue processing:', err);
-  } finally {
-    isPlayingTTS = false;
-    processTTSQueue(client);
+    console.error('Error in playTTS:', err);
   }
-}
-
-export function playTTS(client, guildId, channelId, text) {
-  ttsQueue.push({ guildId, channelId, text });
-  processTTSQueue(client);
 }
 
 export async function triggerVoiceTTS(client, bossName) {
