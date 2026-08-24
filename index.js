@@ -76,6 +76,15 @@ client.once('ready', async () => {
   // Start background monitoring scheduler (runs every 1 second for 1-second precision)
   setInterval(() => checkUpcomingSpawns(client), 1000);
 
+  // Periodically re-sync Google time every 6 hours to prevent long-term server clock drift
+  setInterval(async () => {
+    try {
+      await syncGoogleTime();
+    } catch (err) {
+      console.warn('⚠️ Periodic Google time sync warning:', err.message);
+    }
+  }, 6 * 60 * 60 * 1000);
+
   // Start NotMeter Auto-Sync Poller (runs every 60 seconds with ETag/304 caching)
   setInterval(async () => {
     try {
