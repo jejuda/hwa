@@ -26,11 +26,6 @@ import {
 } from './src/scheduler/spawnScheduler.js';
 import { syncNotMeterData } from './src/services/notmeterService.js';
 import { parseBossTimesFromOCR } from './src/services/ocrService.js';
-import {
-  createDashboard,
-  updateDashboard,
-  deleteDashboard
-} from './src/services/dashboardService.js';
 
 dotenv.config();
 
@@ -96,15 +91,11 @@ client.once('ready', async () => {
       const autoSyncSetting = await db.getSetting('auto_sync_notmeter');
       if (autoSyncSetting !== 'off') {
         await syncNotMeterData();
-        await updateDashboard(client);
       }
     } catch (err) {
       // Silently handle periodic network fetch errors
     }
   }, 60 * 1000);
-
-  // Start Live Dashboard Auto-Refresh Poller (runs every 20 seconds)
-  setInterval(() => updateDashboard(client), 20 * 1000);
 
   // Initial sync on startup
   (async () => {
@@ -150,7 +141,6 @@ client.on('interactionCreate', async interaction => {
         
         await db.recordKill(boss.name, killTime, nextSpawnTime);
         invalidateNotificationCache();
-        updateDashboard(client);
 
         const responseEmbed = new EmbedBuilder()
           .setTitle(`⚔️ ${boss.name} 컷 기록 완료 (버튼 클릭)`)
@@ -167,13 +157,6 @@ client.on('interactionCreate', async interaction => {
       } catch (err) {
         console.error('Error recording kill from button:', err);
         await interaction.reply({ content: `❌ 컷 기록 중 오류 발생: ${err.message}`, ephemeral: true });
-      }
-    } else if (customId === 'dashboard_refresh') {
-      try {
-        await updateDashboard(client);
-        await interaction.reply({ content: '🔄 전광판이 최신 상태로 새로고침되었습니다.', ephemeral: true });
-      } catch (err) {
-        await interaction.reply({ content: `❌ 새로고침 실패: ${err.message}`, ephemeral: true });
       }
     }
     return;
@@ -436,7 +419,6 @@ client.on('interactionCreate', async interaction => {
 
       await db.recordSpawn(boss.name, nextSpawnTime);
       invalidateNotificationCache();
-      updateDashboard(client);
 
       const responseEmbed = new EmbedBuilder()
         .setTitle(`⏰ ${boss.name} 다음 젠 시간 등록 완료`)
@@ -466,7 +448,6 @@ client.on('interactionCreate', async interaction => {
       try {
         await db.rollbackRecord(boss.name);
         invalidateNotificationCache();
-        updateDashboard(client);
 
         const updatedBoss = await db.getBoss(boss.name);
         const lastKillStr = formatDateTime(updatedBoss.last_kill);
@@ -696,42 +677,6 @@ client.on('interactionCreate', async interaction => {
           await interaction.editReply({ embeds: [embed] });
         } catch (err) {
           await interaction.editReply(`❌ 즉시 동기화 실패: ${err.message}`);
-        }
-      }
-    }
-
-    // 13. LIVE DASHBOARD (/전광판, /대시보드)
-    else if (commandName === '전광판' || commandName === '대시보드') {
-      const action = interaction.options.getString('동작');
-      const targetChannel = interaction.options.getChannel('채널') || interaction.channel;
-
-      if (action === 'create') {
-        await interaction.deferReply({ ephemeral: true });
-        try {
-          // Check if there is already an existing dashboard and delete it first
-          await deleteDashboard(client);
-          await createDashboard(client, targetChannel);
-          await interaction.editReply(`✅ <#${targetChannel.id}> 채널에 **실시간 20초 자동 갱신 전광판**이 생성되었습니다!`);
-        } catch (err) {
-          await interaction.editReply(`❌ 전광판 생성 실패: ${err.message}`);
-        }
-      }
-      else if (action === 'refresh') {
-        await interaction.deferReply({ ephemeral: true });
-        try {
-          await updateDashboard(client);
-          await interaction.editReply('✅ 전광판이 최신 상태로 새로고침되었습니다.');
-        } catch (err) {
-          await interaction.editReply(`❌ 전광판 갱신 실패: ${err.message}`);
-        }
-      }
-      else if (action === 'delete') {
-        await interaction.deferReply({ ephemeral: true });
-        try {
-          await deleteDashboard(client);
-          await interaction.editReply('🗑️ 기존 전광판이 삭제되었으며 자동 갱신이 중단되었습니다.');
-        } catch (err) {
-          await interaction.editReply(`❌ 전광판 삭제 실패: ${err.message}`);
         }
       }
     }
