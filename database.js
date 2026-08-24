@@ -165,7 +165,7 @@ export async function recordKill(name, killTime, nextSpawnTime) {
   const now = new Date();
   const diffMs = nextSpawnTime.getTime() - now.getTime();
   const notified5 = diffMs <= 10000 ? 1 : 0;
-  const notified0 = diffMs <= 10000 ? 1 : 0;
+  const notified0 = diffMs < -180000 ? 1 : 0;
 
   await run(`
     UPDATE records 
@@ -198,7 +198,7 @@ export async function recordSpawn(name, nextSpawnTime) {
   const now = new Date();
   const diffMs = nextSpawnTime.getTime() - now.getTime();
   const notified5 = diffMs <= 10000 ? 1 : 0;
-  const notified0 = diffMs <= 10000 ? 1 : 0;
+  const notified0 = diffMs < -180000 ? 1 : 0;
 
   await run(`
     UPDATE records 

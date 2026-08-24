@@ -72,46 +72,51 @@ export async function checkUpcomingSpawns(client) {
     if (!channel) return;
 
     for (const record of cachedRecords) {
-      const nextSpawn = new Date(record.next_spawn);
-      const diffMs = nextSpawn - now;
-      const diffMins = diffMs / 60000;
+      try {
+        const nextSpawn = new Date(record.next_spawn);
+        const diffMs = nextSpawn.getTime() - now.getTime();
 
-      // 1. 5 minutes alert (5 minutes down to 10 seconds remaining)
-      if (diffMs <= 300000 && diffMs > 10000 && record.notified_5 === 0) {
-        record.notified_5 = 1;
+        // 1. 5 minutes alert (5 minutes down to 10 seconds remaining)
+        if (diffMs <= 300000 && diffMs > 10000 && record.notified_5 === 0) {
+          record.notified_5 = 1;
+          await db.markNotified(record.name, '5');
 
-        const cutButton = new ButtonBuilder()
-          .setCustomId(`cut_${record.name}`)
-          .setLabel(`${record.name} 컷 기록`)
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji('⚔️');
-        const row = new ActionRowBuilder().addComponents(cutButton);
+          const cutButton = new ButtonBuilder()
+            .setCustomId(`cut_${record.name}`)
+            .setLabel(`${record.name} 컷 기록`)
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('⚔️');
+          const row = new ActionRowBuilder().addComponents(cutButton);
 
-        await channel.send({
-          content: `⚠️ **${record.name}** 젠 5분 전! (예정 시간: ${formatDateTime(nextSpawn)})`,
-          components: [row]
-        });
-        await db.markNotified(record.name, '5');
-        await triggerVoiceTTS(client, record.name);
-      }
+          channel.send({
+            content: `⚠️ **${record.name}** 젠 5분 전! (예정 시간: ${formatDateTime(nextSpawn)})`,
+            components: [row]
+          }).catch(err => console.error(`Failed to send 5m alert for ${record.name}:`, err));
 
-      // 2. Spawn alert (10 seconds remaining down to 2 minutes overdue)
-      if (diffMs <= 10000 && diffMs >= -120000 && record.notified_0 === 0) {
-        record.notified_0 = 1;
+          triggerVoiceTTS(client, record.name);
+        }
 
-        const cutButton = new ButtonBuilder()
-          .setCustomId(`cut_${record.name}`)
-          .setLabel(`${record.name} 컷 기록`)
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji('⚔️');
-        const row = new ActionRowBuilder().addComponents(cutButton);
+        // 2. Spawn alert (10 seconds remaining down to 3 minutes overdue)
+        if (diffMs <= 10000 && diffMs >= -180000 && record.notified_0 === 0) {
+          record.notified_0 = 1;
+          await db.markNotified(record.name, '0');
 
-        await channel.send({
-          content: `⚔️ **${record.name}** 곧 출현합니다!`,
-          components: [row]
-        });
-        await db.markNotified(record.name, '0');
-        await announceVoice(client, `${record.name} 곧 출현합니다.`);
+          const cutButton = new ButtonBuilder()
+            .setCustomId(`cut_${record.name}`)
+            .setLabel(`${record.name} 컷 기록`)
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('⚔️');
+          const row = new ActionRowBuilder().addComponents(cutButton);
+
+          channel.send({
+            content: `⚔️ **${record.name}** 곧 출현합니다!`,
+            components: [row]
+          }).catch(err => console.error(`Failed to send spawn alert for ${record.name}:`, err));
+
+          announceVoice(client, `${record.name} 곧 출현합니다.`);
+        }
+      } catch (bossErr) {
+        console.error(`Error processing notification for ${record.name}:`, bossErr);
       }
     }
   } catch (error) {

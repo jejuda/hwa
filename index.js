@@ -103,6 +103,8 @@ client.once('ready', async () => {
   })();
 });
 
+const lastCutClick = new Map();
+
 // Event: Interaction Command & Button Router
 client.on('interactionCreate', async interaction => {
   if (interaction.isButton()) {
@@ -110,6 +112,16 @@ client.on('interactionCreate', async interaction => {
     if (customId.startsWith('cut_')) {
       const bossName = customId.substring(4);
       try {
+        const nowMs = Date.now();
+        const prevClick = lastCutClick.get(bossName) || 0;
+        if (nowMs - prevClick < 10000) {
+          return interaction.reply({
+            content: `ℹ️ **${bossName}**의 컷 기록이 방금 전 이미 처리되었습니다.`,
+            ephemeral: true
+          });
+        }
+        lastCutClick.set(bossName, nowMs);
+
         const boss = await db.getBoss(bossName);
         if (!boss) {
           return interaction.reply({ content: `❌ 보스 정보를 찾을 수 없습니다: **${bossName}**`, ephemeral: true });
