@@ -76,8 +76,8 @@ export async function checkUpcomingSpawns(client) {
         const nextSpawn = new Date(record.next_spawn);
         const diffMs = nextSpawn.getTime() - now.getTime();
 
-        // 1. 5 minutes alert (5 minutes down to 10 seconds remaining)
-        if (diffMs <= 300000 && diffMs > 10000 && record.notified_5 === 0) {
+        // 1. 5 minutes alert (5 minutes down to 15 seconds remaining)
+        if (diffMs <= 300000 && diffMs > 15000 && record.notified_5 === 0) {
           record.notified_5 = 1;
           await db.markNotified(record.name, '5');
 
@@ -96,8 +96,8 @@ export async function checkUpcomingSpawns(client) {
           triggerVoiceTTS(client, record.name);
         }
 
-        // 2. Spawn alert (10 seconds remaining down to 3 minutes overdue)
-        if (diffMs <= 10000 && diffMs >= -180000 && record.notified_0 === 0) {
+        // 2. Spawn alert (15 seconds remaining down to 3 minutes overdue)
+        if (diffMs <= 15000 && diffMs >= -180000 && record.notified_0 === 0) {
           record.notified_0 = 1;
           await db.markNotified(record.name, '0');
 

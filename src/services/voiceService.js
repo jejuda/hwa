@@ -34,16 +34,24 @@ export async function playTTS(client, guildId, channelId, text) {
       voice: 'ko-KR-SunHiNeural'
     });
 
-    const readable = Readable.from((async function* () {
+    // Safely collect audio stream chunks into memory buffer to prevent premature stream close errors
+    const chunks = [];
+    try {
       for await (const chunk of communicate.stream()) {
         if (chunk.type === 'audio' && chunk.data) {
-          yield chunk.data;
+          chunks.push(chunk.data);
         }
       }
-    })());
+    } catch (streamErr) {
+      // Ignore network/abort interruptions silently
+      return;
+    }
 
-    const resource = createAudioResource(readable);
-    audioPlayer.play(resource);
+    if (chunks.length > 0) {
+      const buffer = Buffer.concat(chunks);
+      const resource = createAudioResource(Readable.from(buffer));
+      audioPlayer.play(resource);
+    }
   } catch (err) {
     console.error('Error in playTTS:', err);
   }

@@ -154,18 +154,43 @@ export async function getBoss(name) {
   `, [name]);
 }
 
-// Record boss kill
+// Helper to compute notified_5 and notified_0 safely without wiping active alerts
+function calculateNotifiedFlags(nextSpawnTime, currentRecord, now = new Date()) {
+  const diffMs = nextSpawnTime.getTime() - now.getTime();
+
+  // If this is the same spawn cycle (time difference with previous spawn < 30 minutes), preserve existing notification states!
+  if (currentRecord && currentRecord.next_spawn) {
+    const prevNextSpawnTime = new Date(currentRecord.next_spawn).getTime();
+    const cycleDiff = Math.abs(nextSpawnTime.getTime() - prevNextSpawnTime);
+
+    if (cycleDiff < 30 * 60 * 1000) {
+      let notified5 = currentRecord.notified_5 || 0;
+      let notified0 = currentRecord.notified_0 || 0;
+
+      // If time has already passed 15s before spawn, 5m must be 1
+      if (diffMs <= 15000) notified5 = 1;
+      // If time is overdue by > 3 minutes, 0m must be 1
+      if (diffMs < -180000) notified0 = 1;
+
+      return { notified5, notified0 };
+    }
+  }
+
+  // New spawn cycle (kill recorded or new cycle >= 30m away)
+  let notified5 = diffMs <= 15000 ? 1 : 0;
+  let notified0 = diffMs < -180000 ? 1 : 0;
+
+  return { notified5, notified0 };
+}
+
+// Record boss kill from user command or button
 export async function recordKill(name, killTime, nextSpawnTime) {
-  // Get current record to save as backup for rollback
-  const record = await get('SELECT last_kill, next_spawn FROM records WHERE boss_name = ?', [name]);
+  const record = await get('SELECT last_kill, next_spawn, notified_5, notified_0 FROM records WHERE boss_name = ?', [name]);
   
   const prevLastKill = record ? record.last_kill : null;
   const prevNextSpawn = record ? record.next_spawn : null;
 
-  const now = new Date();
-  const diffMs = nextSpawnTime.getTime() - now.getTime();
-  const notified5 = diffMs <= 10000 ? 1 : 0;
-  const notified0 = diffMs < -180000 ? 1 : 0;
+  const { notified5, notified0 } = calculateNotifiedFlags(nextSpawnTime, record);
 
   await run(`
     UPDATE records 
@@ -178,7 +203,7 @@ export async function recordKill(name, killTime, nextSpawnTime) {
         notified_0 = ?
     WHERE boss_name = ?
   `, [
-    killTime.toISOString(),
+    killTime ? killTime.toISOString() : null,
     nextSpawnTime.toISOString(),
     prevLastKill,
     prevNextSpawn,
@@ -188,17 +213,14 @@ export async function recordKill(name, killTime, nextSpawnTime) {
   ]);
 }
 
-// Record explicit next spawn time
+// Record explicit next spawn time from user command
 export async function recordSpawn(name, nextSpawnTime) {
-  const record = await get('SELECT last_kill, next_spawn FROM records WHERE boss_name = ?', [name]);
+  const record = await get('SELECT last_kill, next_spawn, notified_5, notified_0 FROM records WHERE boss_name = ?', [name]);
   
   const prevLastKill = record ? record.last_kill : null;
   const prevNextSpawn = record ? record.next_spawn : null;
 
-  const now = new Date();
-  const diffMs = nextSpawnTime.getTime() - now.getTime();
-  const notified5 = diffMs <= 10000 ? 1 : 0;
-  const notified0 = diffMs < -180000 ? 1 : 0;
+  const { notified5, notified0 } = calculateNotifiedFlags(nextSpawnTime, record);
 
   await run(`
     UPDATE records 
@@ -211,6 +233,36 @@ export async function recordSpawn(name, nextSpawnTime) {
         notified_0 = ?
     WHERE boss_name = ?
   `, [
+    nextSpawnTime.toISOString(),
+    prevLastKill,
+    prevNextSpawn,
+    notified5,
+    notified0,
+    name
+  ]);
+}
+
+// Synchronize spawn time from NotMeter API without wiping active notification state
+export async function syncBossSpawnTime(name, estimatedKillTime, nextSpawnTime) {
+  const record = await get('SELECT last_kill, next_spawn, notified_5, notified_0 FROM records WHERE boss_name = ?', [name]);
+  
+  const prevLastKill = record ? record.last_kill : null;
+  const prevNextSpawn = record ? record.next_spawn : null;
+
+  const { notified5, notified0 } = calculateNotifiedFlags(nextSpawnTime, record);
+
+  await run(`
+    UPDATE records 
+    SET last_kill = ?, 
+        next_spawn = ?, 
+        prev_last_kill = ?, 
+        prev_next_spawn = ?,
+        notified_10 = 0, 
+        notified_5 = ?, 
+        notified_0 = ?
+    WHERE boss_name = ?
+  `, [
+    estimatedKillTime ? estimatedKillTime.toISOString() : null,
     nextSpawnTime.toISOString(),
     prevLastKill,
     prevNextSpawn,

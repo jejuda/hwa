@@ -82,7 +82,7 @@ export async function syncNotMeterData(options = {}) {
 
       if (isDifferent || options.force) {
         const estimatedKillTime = new Date(newSpawnTime.getTime() - (bossInfo.cooldown || 240) * 60 * 1000);
-        await db.recordKill(bossName, estimatedKillTime, newSpawnTime);
+        await db.syncBossSpawnTime(bossName, estimatedKillTime, newSpawnTime);
         updatedBosses.push({
           name: bossName,
           previousSpawn: currentNextSpawn,
