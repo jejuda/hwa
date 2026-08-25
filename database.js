@@ -167,8 +167,8 @@ function calculateNotifiedFlags(nextSpawnTime, currentRecord, now = new Date()) 
       let notified5 = currentRecord.notified_5 || 0;
       let notified0 = currentRecord.notified_0 || 0;
 
-      // If time has already passed 15s before spawn, 5m must be 1
-      if (diffMs <= 15000) notified5 = 1;
+      // If time has already passed 10s before spawn, 5m must be 1
+      if (diffMs <= 10000) notified5 = 1;
       // If time is overdue by > 3 minutes, 0m must be 1
       if (diffMs < -180000) notified0 = 1;
 
@@ -177,7 +177,7 @@ function calculateNotifiedFlags(nextSpawnTime, currentRecord, now = new Date()) 
   }
 
   // New spawn cycle (kill recorded or new cycle >= 30m away)
-  let notified5 = diffMs <= 15000 ? 1 : 0;
+  let notified5 = diffMs <= 10000 ? 1 : 0;
   let notified0 = diffMs < -180000 ? 1 : 0;
 
   return { notified5, notified0 };
