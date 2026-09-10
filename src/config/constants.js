@@ -67,7 +67,8 @@ export const BOSS_LOCATIONS = {
 };
 
 export const NOTMETER_ENDPOINTS = [
-  'https://raw.githubusercontent.com/Not4You-Dev/NotMeter-Web/main/presence/notmeter-field-boss-public.json',
-  'https://cdn.jsdelivr.net/gh/Not4You-Dev/NotMeter-Web@main/presence/notmeter-field-boss-public.json',
-  'https://notmeter.112-168-140-142.sslip.io/field-boss/v1/public'
+  'https://notmeter.59-27-108-81.sslip.io/field-boss/v1/public',
+  'https://notmeter.59-27-108-81.nip.io/field-boss/v1/public',
+  'https://raw.githubusercontent.com/Not4You-Dev/NotMeter-Cache/main/presence/notmeter-field-boss-public.json',
+  'https://cdn.jsdelivr.net/gh/Not4You-Dev/NotMeter-Cache@main/presence/notmeter-field-boss-public.json'
 ];
