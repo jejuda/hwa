@@ -64,22 +64,6 @@ const commands = [
     .setName('보스순서')
     .setDescription('남은 시간이 적게 남은 순서대로 보스 목록을 나열합니다.'),
 
-  // /컷 [이름] [시간]
-  new SlashCommandBuilder()
-    .setName('컷')
-    .setDescription('보스 처치(컷) 시간을 기록합니다.')
-    .addStringOption(option =>
-      option.setName('이름')
-        .setDescription('보스 이름을 선택하세요.')
-        .setRequired(true)
-        .addChoices(...BOSS_CHOICES)
-    )
-    .addStringOption(option =>
-      option.setName('시간')
-        .setDescription('처치한 시간(HH:MM:SS) 또는 "몇분전" 형태로 입력하세요. (예: 14:30:15, 10분전, 생략시 현재시간)')
-        .setRequired(false)
-    ),
-
   // /젠 [이름] [시간]
   new SlashCommandBuilder()
     .setName('젠')

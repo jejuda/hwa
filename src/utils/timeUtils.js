@@ -65,38 +65,6 @@ export function parseTimeString(timeStr) {
   return { hh, mm, ss };
 }
 
-export function parseTimeInput(timeStr) {
-  if (!timeStr) return getCurrentTime();
-  timeStr = timeStr.trim();
-
-  // Case 1: "10분전" or "10분" or "10"
-  if (/^\d+(분전|분)?$/.test(timeStr)) {
-    const mins = parseInt(timeStr.match(/^\d+/)[0], 10);
-    const date = getCurrentTime();
-    date.setMinutes(date.getMinutes() - mins);
-    date.setSeconds(0, 0); // Reset seconds for relative time
-    return date;
-  }
-
-  // Case 2: Custom hh, mm, ss parse
-  const { hh, mm, ss } = parseTimeString(timeStr);
-  
-  const nowUTC = getCurrentTime();
-  const kstOffset = 9 * 60 * 60 * 1000;
-  const nowKST = new Date(nowUTC.getTime() + kstOffset);
-
-  const targetKST = new Date(nowKST);
-  targetKST.setUTCHours(hh, mm, ss, 0);
-
-  // Timezone / Day rollover adjustment
-  if (targetKST.getTime() - nowKST.getTime() > 15 * 60 * 1000) {
-    targetKST.setUTCDate(targetKST.getUTCDate() - 1);
-  }
-
-  const targetUTC = new Date(targetKST.getTime() - kstOffset);
-  return targetUTC;
-}
-
 export function parseFutureTimeInput(timeStr) {
   if (!timeStr) throw new Error('시간을 입력해야 합니다.');
   timeStr = timeStr.trim();

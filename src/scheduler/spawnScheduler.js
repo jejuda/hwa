@@ -1,4 +1,3 @@
-import { ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
 import * as db from '../../database.js';
 import { getCurrentTime, formatDateTime } from '../utils/timeUtils.js';
 import { announceVoice, triggerVoiceTTS } from '../services/voiceService.js';
@@ -88,16 +87,8 @@ export async function checkUpcomingSpawns(client) {
           const claimed = await db.claimNotification(record.name, '5');
           if (!claimed) continue;
 
-          const cutButton = new ButtonBuilder()
-            .setCustomId(`cut_${record.name}`)
-            .setLabel(`${record.name} 컷 기록`)
-            .setStyle(ButtonStyle.Danger)
-            .setEmoji('⚔️');
-          const row = new ActionRowBuilder().addComponents(cutButton);
-
           channel.send({
-            content: `⚠️ **${record.name}** 젠 5분 전! (예정 시간: ${formatDateTime(nextSpawn)})`,
-            components: [row]
+            content: `⚠️ **${record.name}** 젠 5분 전! (예정 시간: ${formatDateTime(nextSpawn)})`
           }).catch(err => console.error(`Failed to send 5m alert for ${record.name}:`, err));
 
           triggerVoiceTTS(client, record.name);
@@ -109,16 +100,8 @@ export async function checkUpcomingSpawns(client) {
           const claimed = await db.claimNotification(record.name, '0');
           if (!claimed) continue;
 
-          const cutButton = new ButtonBuilder()
-            .setCustomId(`cut_${record.name}`)
-            .setLabel(`${record.name} 컷 기록`)
-            .setStyle(ButtonStyle.Danger)
-            .setEmoji('⚔️');
-          const row = new ActionRowBuilder().addComponents(cutButton);
-
           channel.send({
-            content: `⚔️ **${record.name}** 곧 출현합니다!`,
-            components: [row]
+            content: `⚔️ **${record.name}** 곧 출현합니다!`
           }).catch(err => console.error(`Failed to send spawn alert for ${record.name}:`, err));
 
           announceVoice(client, `${record.name} 곧 출현합니다.`);

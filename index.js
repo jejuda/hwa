@@ -1,10 +1,7 @@
 import {
   Client,
   GatewayIntentBits,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
+  EmbedBuilder
 } from 'discord.js';
 import { joinVoiceChannel, getVoiceConnection } from '@discordjs/voice';
 import dotenv from 'dotenv';
@@ -14,7 +11,6 @@ import * as db from './database.js';
 import {
   syncGoogleTime,
   getCurrentTime,
-  parseTimeInput,
   parseFutureTimeInput,
   parseRemainingTime,
   formatDateTime,
@@ -144,56 +140,8 @@ client.once('ready', async () => {
   })();
 });
 
-const lastCutClick = new Map();
-
-// Event: Interaction Command & Button Router
+// Event: Interaction Command Router
 client.on('interactionCreate', async interaction => {
-  if (interaction.isButton()) {
-    const customId = interaction.customId;
-    if (customId.startsWith('cut_')) {
-      const bossName = customId.substring(4);
-      try {
-        const nowMs = Date.now();
-        const prevClick = lastCutClick.get(bossName) || 0;
-        if (nowMs - prevClick < 10000) {
-          return interaction.reply({
-            content: `ℹ️ **${bossName}**의 컷 기록이 방금 전 이미 처리되었습니다.`,
-            ephemeral: true
-          });
-        }
-        lastCutClick.set(bossName, nowMs);
-
-        const boss = await db.getBoss(bossName);
-        if (!boss) {
-          return interaction.reply({ content: `❌ 보스 정보를 찾을 수 없습니다: **${bossName}**`, ephemeral: true });
-        }
-
-        const killTime = getCurrentTime();
-        const nextSpawnTime = new Date(killTime.getTime() + boss.cooldown * 60 * 1000);
-        
-        await db.recordKill(boss.name, killTime, nextSpawnTime);
-        invalidateNotificationCache();
-
-        const responseEmbed = new EmbedBuilder()
-          .setTitle(`⚔️ ${boss.name} 컷 기록 완료 (버튼 클릭)`)
-          .setColor(0xFF4500)
-          .addFields(
-            { name: '처치(컷) 시간', value: `\`${formatDateTime(killTime)}\``, inline: true },
-            { name: '다음 젠 예정', value: `\`${formatDateTime(nextSpawnTime)}\``, inline: true },
-            { name: '남은 시간', value: `\`${formatRemainingTime(nextSpawnTime)}\``, inline: false }
-          )
-          .setFooter({ text: `${interaction.user.tag} 님이 컷 버튼을 클릭했습니다.` })
-          .setTimestamp();
-
-        await interaction.reply({ embeds: [responseEmbed] });
-      } catch (err) {
-        console.error('Error recording kill from button:', err);
-        await interaction.reply({ content: `❌ 컷 기록 중 오류 발생: ${err.message}`, ephemeral: true });
-      }
-    }
-    return;
-  }
-
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName } = interaction;
@@ -384,45 +332,7 @@ client.on('interactionCreate', async interaction => {
       await interaction.reply({ embeds: [embed] });
     }
     
-    // 4. REPORT KILL (/컷)
-    else if (commandName === '컷') {
-      const inputName = interaction.options.getString('이름').trim();
-      const timeStr = interaction.options.getString('시간');
-
-      const res = await resolveBossName(inputName);
-      if (res.matchType === 'none') {
-        return interaction.reply({ content: `❌ 등록되지 않은 보스입니다: **${inputName}**`, ephemeral: true });
-      } else if (res.matchType === 'multiple') {
-        return interaction.reply({ content: `❌ 여러 보스가 검색되었습니다: **${res.matches.join(', ')}**. 더 명확히 입력해주세요.`, ephemeral: true });
-      }
-
-      const boss = res.boss;
-      let killTime;
-      try {
-        killTime = parseTimeInput(timeStr);
-      } catch (err) {
-        return interaction.reply({ content: `❌ ${err.message}`, ephemeral: true });
-      }
-
-      const nextSpawnTime = new Date(killTime.getTime() + boss.cooldown * 60 * 1000);
-      await db.recordKill(boss.name, killTime, nextSpawnTime);
-      invalidateNotificationCache();
-      updateDashboard(client);
-
-      const responseEmbed = new EmbedBuilder()
-        .setTitle(`⚔️ ${boss.name} 컷 기록 완료`)
-        .setColor(0xFF4500)
-        .addFields(
-          { name: '처치(컷) 시간', value: `\`${formatDateTime(killTime)}\``, inline: true },
-          { name: '다음 젠 예정', value: `\`${formatDateTime(nextSpawnTime)}\``, inline: true },
-          { name: '남은 시간', value: `\`${formatRemainingTime(nextSpawnTime)}\``, inline: false }
-        )
-        .setTimestamp();
-
-      await interaction.reply({ embeds: [responseEmbed] });
-    }
-    
-    // 5. RECORD EXPLICIT SPAWN (/젠)
+    // 4. RECORD EXPLICIT SPAWN (/젠)
     else if (commandName === '젠') {
       const inputName = interaction.options.getString('이름').trim();
       const timeStr = interaction.options.getString('시간');
@@ -464,7 +374,7 @@ client.on('interactionCreate', async interaction => {
       await interaction.reply({ embeds: [responseEmbed] });
     }
     
-    // 6. ROLLBACK RECORD (/컷취소)
+    // 5. ROLLBACK RECORD (/컷취소)
     else if (commandName === '컷취소') {
       const inputName = interaction.options.getString('이름').trim();
 
@@ -664,7 +574,7 @@ client.on('interactionCreate', async interaction => {
           .setTitle('🔴 NotMeter 실시간 자동 동기화 비활성화')
           .setColor(0xFF5555)
           .setDescription(`자동 동기화가 **꺼졌습니다.**\n` +
-                          `└ 이제 사이트 데이터가 자동 반영되지 않으며, **수동 /컷 및 /젠 모드**로 동작합니다.`)
+                          `└ 이제 사이트 데이터가 자동 반영되지 않으며, **수동 /젠 모드**로 동작합니다.`)
           .setFooter({ text: 'notmeter.com 실시간 연동' })
           .setTimestamp();
         await interaction.reply({ embeds: [embed] });
