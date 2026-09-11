@@ -8,6 +8,7 @@ import {
 } from 'discord.js';
 import { joinVoiceChannel, getVoiceConnection } from '@discordjs/voice';
 import dotenv from 'dotenv';
+import { createServer } from 'node:net';
 
 import * as db from './database.js';
 import {
@@ -30,10 +31,41 @@ import { parseBossTimesFromOCR } from './src/services/ocrService.js';
 dotenv.config();
 
 const { DISCORD_TOKEN } = process.env;
+const INSTANCE_LOCK_PORT = Number(process.env.INSTANCE_LOCK_PORT || 47821);
 
 if (!DISCORD_TOKEN) {
   console.error('Error: DISCORD_TOKEN is missing in the .env file.');
   process.exit(1);
+}
+
+if (!Number.isInteger(INSTANCE_LOCK_PORT) || INSTANCE_LOCK_PORT < 1 || INSTANCE_LOCK_PORT > 65535) {
+  console.error('Error: INSTANCE_LOCK_PORT must be an integer between 1 and 65535.');
+  process.exit(1);
+}
+
+// Hold a localhost port for the lifetime of the process. This prevents a second
+// copy of the bot (even from another project folder) from running on this host.
+async function acquireInstanceLock() {
+  return await new Promise((resolve, reject) => {
+    const lockServer = createServer();
+
+    lockServer.once('error', reject);
+    lockServer.listen({ host: '127.0.0.1', port: INSTANCE_LOCK_PORT, exclusive: true }, () => {
+      lockServer.removeListener('error', reject);
+      resolve(lockServer);
+    });
+  });
+}
+
+let instanceLockServer;
+try {
+  instanceLockServer = await acquireInstanceLock();
+} catch (error) {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Error: another bot instance is already running (lock port ${INSTANCE_LOCK_PORT}).`);
+    process.exit(1);
+  }
+  throw error;
 }
 
 const client = new Client({

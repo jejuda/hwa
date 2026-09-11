@@ -12,6 +12,7 @@ let lastRaid30Hour = -1;
 let cachedRecords = [];
 let cachedNotificationChannel = null;
 let lastCacheFetch = 0;
+let schedulerRunning = false;
 
 export function invalidateNotificationCache() {
   lastCacheFetch = 0;
@@ -32,6 +33,11 @@ export async function sendTextNotification(client, text) {
 }
 
 export async function checkUpcomingSpawns(client) {
+  // setInterval does not wait for the previous async run to finish.
+  // Skip overlapping ticks within this process.
+  if (schedulerRunning) return;
+  schedulerRunning = true;
+
   try {
     const now = getCurrentTime();
     const currentHour = now.getHours();
@@ -79,7 +85,8 @@ export async function checkUpcomingSpawns(client) {
         // 1. 5 minutes alert (5 minutes down to 10 seconds remaining)
         if (diffMs <= 300000 && diffMs > 10000 && record.notified_5 === 0) {
           record.notified_5 = 1;
-          await db.markNotified(record.name, '5');
+          const claimed = await db.claimNotification(record.name, '5');
+          if (!claimed) continue;
 
           const cutButton = new ButtonBuilder()
             .setCustomId(`cut_${record.name}`)
@@ -99,7 +106,8 @@ export async function checkUpcomingSpawns(client) {
         // 2. Spawn alert (10 seconds remaining down to 3 minutes overdue)
         if (diffMs <= 10000 && diffMs >= -180000 && record.notified_0 === 0) {
           record.notified_0 = 1;
-          await db.markNotified(record.name, '0');
+          const claimed = await db.claimNotification(record.name, '0');
+          if (!claimed) continue;
 
           const cutButton = new ButtonBuilder()
             .setCustomId(`cut_${record.name}`)
@@ -121,5 +129,7 @@ export async function checkUpcomingSpawns(client) {
     }
   } catch (error) {
     console.error('Error in scheduler loop:', error);
+  } finally {
+    schedulerRunning = false;
   }
 }

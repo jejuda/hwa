@@ -326,9 +326,19 @@ export async function getActiveNotifications() {
   `);
 }
 
-// Update notified flags
-export async function markNotified(name, level) {
-  // level can be '10', '5', or '0'
+// Atomically claim an alert so only one scheduler/process sends it.
+export async function claimNotification(name, level) {
+  const validLevels = new Set(['10', '5', '0']);
+  if (!validLevels.has(level)) {
+    throw new Error(`Invalid notification level: ${level}`);
+  }
+
   const column = `notified_${level}`;
-  await run(`UPDATE records SET ${column} = 1 WHERE boss_name = ?`, [name]);
+  const result = await run(`
+    UPDATE records
+    SET ${column} = 1
+    WHERE boss_name = ? AND ${column} = 0
+  `, [name]);
+
+  return result.changes === 1;
 }
