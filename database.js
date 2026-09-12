@@ -74,6 +74,19 @@ export async function initDB() {
     )
   `);
 
+  // Keep the latest claimed spawn cycle per boss/notification level.
+  // This watermark prevents a stale external timer from replaying an alert.
+  await run(`
+    CREATE TABLE IF NOT EXISTS notification_claims (
+      boss_name TEXT NOT NULL,
+      level TEXT NOT NULL CHECK(level IN ('10', '5', '0')),
+      spawn_time_ms INTEGER NOT NULL,
+      notified_at TEXT NOT NULL,
+      PRIMARY KEY (boss_name, level),
+      FOREIGN KEY(boss_name) REFERENCES bosses(name) ON DELETE CASCADE
+    )
+  `);
+
   // Insert default 14 bosses if they do not exist, and enforce correct cooldowns
   const defaultBosses = [
     { name: '노블루드', cooldown: 240, memo: '필드 보스' },
@@ -104,6 +117,26 @@ export async function initDB() {
     DELETE FROM bosses 
     WHERE name NOT IN ('노블루드', '악시오스', '바르시엔', '구루타', '카루카', '비슈베다', '쉬라크', '타르탄', '카샤파', '라그타', '가르투아', '사르바카', '미나사라', '브란트')
   `);
+
+  // Preserve the current notification state when upgrading an existing DB.
+  const notifiedRecords = await all(`
+    SELECT boss_name, next_spawn, notified_10, notified_5, notified_0
+    FROM records
+    WHERE next_spawn IS NOT NULL
+  `);
+  for (const record of notifiedRecords) {
+    const spawnTimeMs = new Date(record.next_spawn).getTime();
+    if (!Number.isFinite(spawnTimeMs)) continue;
+
+    for (const level of ['10', '5', '0']) {
+      if (record[`notified_${level}`] !== 1) continue;
+      await run(`
+        INSERT OR IGNORE INTO notification_claims
+          (boss_name, level, spawn_time_ms, notified_at)
+        VALUES (?, ?, ?, ?)
+      `, [record.boss_name, level, spawnTimeMs, new Date().toISOString()]);
+    }
+  }
 }
 
 
@@ -326,19 +359,39 @@ export async function getActiveNotifications() {
   `);
 }
 
-// Atomically claim an alert so only one scheduler/process sends it.
-export async function claimNotification(name, level) {
+// Atomically claim a spawn cycle so stale or repeated timer data cannot replay it.
+export async function claimNotification(name, nextSpawn, level) {
   const validLevels = new Set(['10', '5', '0']);
   if (!validLevels.has(level)) {
     throw new Error(`Invalid notification level: ${level}`);
   }
 
+  const spawnTimeMs = new Date(nextSpawn).getTime();
+  if (!Number.isFinite(spawnTimeMs)) {
+    throw new Error(`Invalid spawn time for notification: ${nextSpawn}`);
+  }
+
+  const spawnTimeIso = new Date(spawnTimeMs).toISOString();
   const column = `notified_${level}`;
-  const result = await run(`
+  const flagResult = await run(`
     UPDATE records
     SET ${column} = 1
-    WHERE boss_name = ? AND ${column} = 0
-  `, [name]);
+    WHERE boss_name = ? AND next_spawn = ? AND ${column} = 0
+  `, [name, spawnTimeIso]);
 
-  return result.changes === 1;
+  // The cached timer is no longer current, or another scheduler claimed it.
+  if (flagResult.changes !== 1) return false;
+
+  const minimumCycleGapMs = 30 * 60 * 1000;
+  const claimResult = await run(`
+    INSERT INTO notification_claims
+      (boss_name, level, spawn_time_ms, notified_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(boss_name, level) DO UPDATE SET
+      spawn_time_ms = excluded.spawn_time_ms,
+      notified_at = excluded.notified_at
+    WHERE excluded.spawn_time_ms >= notification_claims.spawn_time_ms + ?
+  `, [name, level, spawnTimeMs, new Date().toISOString(), minimumCycleGapMs]);
+
+  return claimResult.changes === 1;
 }

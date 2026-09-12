@@ -84,7 +84,7 @@ export async function checkUpcomingSpawns(client) {
         // 1. 5 minutes alert (5 minutes down to 10 seconds remaining)
         if (diffMs <= 300000 && diffMs > 10000 && record.notified_5 === 0) {
           record.notified_5 = 1;
-          const claimed = await db.claimNotification(record.name, '5');
+          const claimed = await db.claimNotification(record.name, record.next_spawn, '5');
           if (!claimed) continue;
 
           channel.send({
@@ -97,7 +97,7 @@ export async function checkUpcomingSpawns(client) {
         // 2. Spawn alert (10 seconds remaining down to 3 minutes overdue)
         if (diffMs <= 10000 && diffMs >= -180000 && record.notified_0 === 0) {
           record.notified_0 = 1;
-          const claimed = await db.claimNotification(record.name, '0');
+          const claimed = await db.claimNotification(record.name, record.next_spawn, '0');
           if (!claimed) continue;
 
           channel.send({
