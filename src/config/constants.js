@@ -1,4 +1,4 @@
-export const DEFAULT_11_BOSSES = [
+export const DEFAULT_BOSSES = [
   '노블루드',
   '악시오스',
   '바르시엔',
@@ -12,7 +12,9 @@ export const DEFAULT_11_BOSSES = [
   '가르투아',
   '사르바카',
   '미나사라',
-  '브란트'
+  '브란트',
+  '아그로',
+  '카이라'
 ];
 
 export const BOSS_CHOICES = [
@@ -29,7 +31,9 @@ export const BOSS_CHOICES = [
   { name: '가르투아 (12시간)', value: '가르투아' },
   { name: '사르바카 (12시간)', value: '사르바카' },
   { name: '미나사라 (12시간)', value: '미나사라' },
-  { name: '브란트 (6시간)', value: '브란트' }
+  { name: '브란트 (6시간)', value: '브란트' },
+  { name: '아그로 (24시간)', value: '아그로' },
+  { name: '카이라 (4시간)', value: '카이라' }
 ];
 
 export const NOTMETER_BOSS_MAP = {
@@ -46,7 +50,9 @@ export const NOTMETER_BOSS_MAP = {
   2400855: '타르탄',
   2406990: '미나사라',
   2406991: '사르바카',
-  2406132: '브란트'
+  2406132: '브란트',
+  2600068: '아그로',
+  2600089: '카이라'
 };
 
 export const BOSS_LOCATIONS = {
@@ -63,7 +69,9 @@ export const BOSS_LOCATIONS = {
   '라그타':   { region: '알트가르드', location: '(28) 검은발톱 주둔지' },
   '사르바카': { region: '모르헤임',   location: '(19) 무스펠의 눈' },
   '미나사라': { region: '모르헤임',   location: '(11) 얼어붙은 골짜기' },
-  '브란트':   { region: '모르헤임',   location: '(14) 수색꾼 야영지' }
+  '브란트':   { region: '모르헤임',   location: '(14) 수색꾼 야영지' },
+  '아그로':   { region: '어비스 하층', location: '시엘의 날개 군도' },
+  '카이라':   { region: '어비스 하층', location: '에레슈란타 하층' }
 };
 
 export const NOTMETER_ENDPOINTS = [

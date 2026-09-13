@@ -1,4 +1,4 @@
-import { DEFAULT_11_BOSSES } from '../config/constants.js';
+import { DEFAULT_BOSSES } from '../config/constants.js';
 import { getCurrentTime } from '../utils/timeUtils.js';
 import * as db from '../../database.js';
 
@@ -35,7 +35,7 @@ export function getBossRegex(name) {
 }
 
 export async function parseBossTimesFromOCR(text) {
-  const bosses = (await db.getBossList()).filter(b => DEFAULT_11_BOSSES.includes(b.name));
+  const bosses = (await db.getBossList()).filter(b => DEFAULT_BOSSES.includes(b.name));
   
   // Normalize OCR time unit misreadings globally before space stripping to keep formatting intact
   let normalizedText = text

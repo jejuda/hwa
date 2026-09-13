@@ -24,7 +24,9 @@ const BOSS_CHOICES = [
   { name: '가르투아 (12시간)', value: '가르투아' },
   { name: '사르바카 (12시간)', value: '사르바카' },
   { name: '미나사라 (12시간)', value: '미나사라' },
-  { name: '브란트 (6시간)', value: '브란트' }
+  { name: '브란트 (6시간)', value: '브란트' },
+  { name: '아그로 (24시간)', value: '아그로' },
+  { name: '카이라 (4시간)', value: '카이라' }
 ];
 
 const commands = [
