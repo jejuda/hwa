@@ -20,7 +20,7 @@ from supertonic import TTS
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIRECTORY = PROJECT_ROOT / "assets" / "voice" / "female"
-VOICE_NAME = "F2"
+VOICE_NAME = "F1"
 
 BOSSES = (
     "노블루드",
