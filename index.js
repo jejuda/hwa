@@ -3,7 +3,7 @@ import {
   GatewayIntentBits,
   EmbedBuilder
 } from 'discord.js';
-import { joinVoiceChannel, getVoiceConnection } from '@discordjs/voice';
+import { getVoiceConnection } from '@discordjs/voice';
 import dotenv from 'dotenv';
 import { createServer } from 'node:net';
 
@@ -23,6 +23,10 @@ import {
 } from './src/scheduler/spawnScheduler.js';
 import { syncNotMeterData } from './src/services/notmeterService.js';
 import { parseBossTimesFromOCR } from './src/services/ocrService.js';
+import {
+  announceVoice,
+  connectVoiceChannel
+} from './src/services/voiceService.js';
 
 dotenv.config();
 
@@ -80,25 +84,22 @@ client.once('ready', async () => {
   try {
     await db.initDB();
     console.log('📦 Database tables initialized.');
-
-    // Auto-reconnect to saved voice channel if exists
-    const voiceChannelId = await db.getSetting('voice_channel');
-    const voiceGuildId = await db.getSetting('voice_guild');
-
-    if (voiceChannelId && voiceGuildId) {
-      const guild = client.guilds.cache.get(voiceGuildId);
-      if (guild) {
-        joinVoiceChannel({
-          channelId: voiceChannelId,
-          guildId: voiceGuildId,
-          adapterCreator: guild.voiceAdapterCreator,
-        });
-        console.log(`🔊 Automatically reconnected to voice channel: ${voiceChannelId}`);
-      }
-    }
   } catch (err) {
-    console.error('Failed to initialize database or auto-reconnect to voice:', err);
+    console.error('Failed to initialize database:', err);
     process.exit(1);
+  }
+
+  // Auto-reconnect without taking down the whole bot if Discord voice is
+  // temporarily unavailable.
+  const voiceChannelId = await db.getSetting('voice_channel');
+  const voiceGuildId = await db.getSetting('voice_guild');
+  if (voiceChannelId && voiceGuildId) {
+    try {
+      await connectVoiceChannel(client, voiceGuildId, voiceChannelId);
+      console.log(`🔊 Automatically reconnected to voice channel: ${voiceChannelId}`);
+    } catch (err) {
+      console.error('Failed to auto-reconnect to voice channel:', err);
+    }
   }
 
   // Start background monitoring scheduler (runs every 1 second for 1-second precision)
@@ -434,29 +435,46 @@ client.on('interactionCreate', async interaction => {
 
     // 9. SET VOICE CHANNEL (/음성채널설정)
     else if (commandName === '음성채널설정') {
+      await interaction.deferReply();
       let voiceChannel = interaction.options.getChannel('채널');
 
       if (!voiceChannel) {
         const memberVoice = interaction.member.voice;
         if (!memberVoice || !memberVoice.channel) {
-          return interaction.reply({ content: '❌ 음성 채널을 옵션으로 지정하거나, 먼저 음성 채널에 입장한 후 명령어를 실행해주세요.', ephemeral: true });
+          return interaction.editReply('❌ 음성 채널을 옵션으로 지정하거나, 먼저 음성 채널에 입장한 후 명령어를 실행해주세요.');
         }
         voiceChannel = memberVoice.channel;
       }
 
+      try {
+        await connectVoiceChannel(client, interaction.guildId, voiceChannel.id);
+      } catch (error) {
+        console.error('Failed to configure voice channel:', error);
+        return interaction.editReply('❌ 음성 채널에 연결하지 못했습니다. 봇의 `연결`/`말하기` 권한을 확인한 뒤 다시 시도해주세요.');
+      }
+
       await db.setSetting('voice_channel', voiceChannel.id);
       await db.setSetting('voice_guild', interaction.guildId);
-
-      joinVoiceChannel({
-        channelId: voiceChannel.id,
-        guildId: interaction.guildId,
-        adapterCreator: interaction.guild.voiceAdapterCreator,
-      });
-
-      await interaction.reply(`🔊 음성 알림 채널이 <#${voiceChannel.id}> (으)로 설정되었습니다. 봇이 채널에 입장했습니다.`);
+      await interaction.editReply(`🔊 음성 알림 채널이 <#${voiceChannel.id}> (으)로 설정되었습니다. \`/음성테스트\`로 바로 확인할 수 있습니다.`);
     }
 
-    // 10. LEAVE VOICE CHANNEL (/음성채널해제)
+    // 10. TEST VOICE OUTPUT (/음성테스트)
+    else if (commandName === '음성테스트') {
+      await interaction.deferReply({ ephemeral: true });
+      const channelId = await db.getSetting('voice_channel');
+      if (!channelId) {
+        return interaction.editReply('❌ 먼저 `/음성채널설정`으로 음성 채널을 설정해주세요.');
+      }
+
+      const played = await announceVoice(client, '음성 알림 테스트입니다.');
+      if (!played) {
+        return interaction.editReply('❌ 음성 재생에 실패했습니다. 서버 로그에 원인을 남겼습니다.');
+      }
+
+      await interaction.editReply(`✅ <#${channelId}>에 음성 테스트를 재생했습니다.`);
+    }
+
+    // 11. LEAVE VOICE CHANNEL (/음성채널해제)
     else if (commandName === '음성채널해제') {
       const connection = getVoiceConnection(interaction.guildId);
       if (connection) {
@@ -469,7 +487,7 @@ client.on('interactionCreate', async interaction => {
       await interaction.reply('🔇 음성 알림 채널 설정이 해제되었으며 봇이 퇴장했습니다.');
     }
 
-    // 11. SCREENSHOT OCR ANALYZE (/분석)
+    // 12. SCREENSHOT OCR ANALYZE (/분석)
     else if (commandName === '분석') {
       const attachment = interaction.options.getAttachment('이미지');
       if (!attachment) {
@@ -546,7 +564,7 @@ client.on('interactionCreate', async interaction => {
       }
     }
 
-    // 12. NOTMETER AUTO SYNC (/자동동기화)
+    // 13. NOTMETER AUTO SYNC (/자동동기화)
     else if (commandName === '자동동기화') {
       const action = interaction.options.getString('동작');
 
@@ -624,7 +642,9 @@ client.on('interactionCreate', async interaction => {
     }
   } catch (error) {
     console.error('Error handling slash command:', error);
-    if (!interaction.replied && !interaction.deferred) {
+    if (interaction.deferred && !interaction.replied) {
+      await interaction.editReply('❌ 명령어 처리 중 내부 오류가 발생했습니다. 로그를 확인하세요.').catch(() => {});
+    } else if (!interaction.replied) {
       await interaction.reply({ content: '❌ 명령어 처리 중 내부 오류가 발생했습니다. 로그를 확인하세요.', ephemeral: true });
     }
   }

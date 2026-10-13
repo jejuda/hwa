@@ -124,6 +124,11 @@ const commands = [
     .setName('음성채널해제')
     .setDescription('음성 채널 설정을 해제하고 봇을 퇴장시킵니다.'),
 
+  // /음성테스트
+  new SlashCommandBuilder()
+    .setName('음성테스트')
+    .setDescription('설정된 음성 채널에 테스트 안내를 재생합니다.'),
+
   // /분석
   new SlashCommandBuilder()
     .setName('분석')
