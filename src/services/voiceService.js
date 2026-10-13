@@ -9,26 +9,18 @@ import {
   getVoiceConnection,
   joinVoiceChannel
 } from '@discordjs/voice';
-import { Communicate } from 'edge-tts-universal';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import * as db from '../../database.js';
 
 const VOICE_CONNECTION_TIMEOUT_MS = 15_000;
-const TTS_REQUEST_TIMEOUT_MS = 10_000;
 const PLAYBACK_START_TIMEOUT_MS = 10_000;
 const PLAYBACK_FINISH_TIMEOUT_MS = 60_000;
+const FEMALE_VOICE_DIRECTORY = new URL('../../assets/voice/female/', import.meta.url);
 
 let audioPlayer = null;
 let playbackQueue = Promise.resolve(true);
-
-function withTimeout(promise, timeoutMs, message) {
-  let timeoutId;
-  const timeout = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
-  });
-
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
-}
 
 function getAudioPlayer() {
   if (!audioPlayer) {
@@ -99,72 +91,16 @@ export async function connectVoiceChannel(client, guildId, channelId) {
   }
 }
 
-async function synthesizeWithGoogle(text) {
-  let lastError;
-
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
-    try {
-      const url = new URL('https://translate.google.com/translate_tts');
-      url.searchParams.set('ie', 'UTF-8');
-      url.searchParams.set('client', 'tw-ob');
-      url.searchParams.set('tl', 'ko');
-      url.searchParams.set('q', text);
-
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0'
-        },
-        signal: AbortSignal.timeout(TTS_REQUEST_TIMEOUT_MS)
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const contentType = response.headers.get('content-type') || '';
-      const audio = Buffer.from(await response.arrayBuffer());
-      if (!contentType.startsWith('audio/') || audio.length < 1000) {
-        throw new Error(`Invalid audio response (${contentType || 'unknown'}, ${audio.length} bytes)`);
-      }
-
-      return audio;
-    } catch (error) {
-      lastError = error;
-      console.warn(`Google TTS attempt ${attempt} failed:`, error.message);
-    }
-  }
-
-  throw lastError || new Error('Google TTS failed.');
-}
-
-async function synthesizeWithEdge(text) {
-  const communicate = new Communicate(text, {
-    voice: 'ko-KR-SunHiNeural',
-    connectionTimeout: TTS_REQUEST_TIMEOUT_MS
-  });
-
-  const chunks = [];
-  await withTimeout((async () => {
-    for await (const chunk of communicate.stream()) {
-      if (chunk.type === 'audio' && chunk.data) {
-        chunks.push(chunk.data);
-      }
-    }
-  })(), TTS_REQUEST_TIMEOUT_MS, 'Edge TTS request timed out.');
-
-  if (chunks.length === 0) {
-    throw new Error('Edge TTS returned no audio.');
-  }
-
-  return Buffer.concat(chunks);
-}
-
 export async function synthesizeSpeech(text) {
+  const fileName = `${createHash('sha256').update(text).digest('hex')}.mp3`;
+
   try {
-    return await synthesizeWithGoogle(text);
-  } catch (googleError) {
-    console.warn('Google TTS unavailable; falling back to Edge TTS:', googleError.message);
-    return await synthesizeWithEdge(text);
+    return await readFile(new URL(fileName, FEMALE_VOICE_DIRECTORY));
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      throw new Error(`No female voice asset exists for: ${text}`, { cause: error });
+    }
+    throw error;
   }
 }
 
